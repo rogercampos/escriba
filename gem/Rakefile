@@ -1,0 +1,20 @@
+# frozen_string_literal: true
+
+require "bundler/gem_tasks"
+require "minitest/test_task"
+
+# Create test task but exclude dummy app files
+Minitest::TestTask.create do |t|
+  all_test_files = Dir.glob([
+    "test/test_*.rb",
+    "test/**/*_test.rb"
+  ]).reject { |f| f.include?("test/dummy/") }
+
+  t.test_globs = all_test_files
+
+  # Load test_helper BEFORE minitest/autorun to ensure SimpleCov
+  # registers its at_exit hook first (at_exit runs in LIFO order)
+  t.test_prelude = 'require "test/test_helper"'
+end
+
+task default: :test
