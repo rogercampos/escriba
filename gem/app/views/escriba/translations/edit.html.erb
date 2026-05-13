@@ -1,0 +1,50 @@
+<div class="breadcrumbs">
+  <%= link_to "All translations", translations_path %> &rsaquo;
+  <%= link_to @key, translation_path(@key) %> &rsaquo; Edit <%= @locale %>
+</div>
+
+<h1>Edit <%= @locale %></h1>
+
+<div class="field">
+  <label>Source copy (<%= dev_locale %>)</label>
+  <div class="source-box"><%= render_source(@dev_row) %></div>
+</div>
+
+<% if @dev_row.meaning.present? %>
+  <div class="field">
+    <label>Meaning</label>
+    <div><%= @dev_row.meaning %></div>
+  </div>
+<% end %>
+
+<% if @dev_row.interpolation_names.present? %>
+  <div class="field">
+    <label>Interpolations</label>
+    <div><code><%= Array(@dev_row.interpolation_names).map { |n| "%{#{n}}" }.join(", ") %></code></div>
+  </div>
+<% end %>
+
+<%= form_with url: update_translation_path(@key, @locale), method: :patch, local: true do %>
+  <% if @row.plural %>
+    <% existing = @row.value.is_a?(Hash) ? @row.value.transform_keys(&:to_s) : {} %>
+    <% Escriba::KeyDeriver::PLURAL_FORM_KEYS.each do |form_key| %>
+      <div class="field">
+        <label>
+          <%= form_key %>
+          <% if @dev_row.source_copy.is_a?(Hash) && @dev_row.source_copy[form_key.to_s] %>
+            <span class="muted">— source: <%= @dev_row.source_copy[form_key.to_s] %></span>
+          <% end %>
+        </label>
+        <input type="text" name="translation[value][<%= form_key %>]" value="<%= existing[form_key.to_s] %>">
+      </div>
+    <% end %>
+  <% else %>
+    <div class="field">
+      <label>Translation</label>
+      <textarea name="translation[value]"><%= @row.value %></textarea>
+    </div>
+  <% end %>
+
+  <button type="submit">Save</button>
+  <%= link_to "Cancel", translation_path(@key) %>
+<% end %>

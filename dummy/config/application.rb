@@ -26,5 +26,10 @@ module Dummy
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    # Enable Spanish + English for demo, with fallback to English.
+    config.i18n.available_locales = %i[en es]
+    config.i18n.default_locale = :en
+    config.i18n.fallbacks = true
   end
 end

@@ -1,0 +1,53 @@
+<div class="breadcrumbs">
+  <%= link_to "All translations", translations_path %> &rsaquo; <%= @key %>
+</div>
+
+<h1>Translation</h1>
+
+<div class="field">
+  <label>Source copy (<%= dev_locale %>)</label>
+  <div class="source-box"><%= render_source(@dev_row) %></div>
+</div>
+
+<% if @dev_row.meaning.present? %>
+  <div class="field">
+    <label>Meaning</label>
+    <div><%= @dev_row.meaning %></div>
+  </div>
+<% end %>
+
+<% if @dev_row.interpolation_names.present? %>
+  <div class="field">
+    <label>Interpolations</label>
+    <div><code><%= Array(@dev_row.interpolation_names).map { |n| "%{#{n}}" }.join(", ") %></code></div>
+  </div>
+<% end %>
+
+<h2>Locales</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Locale</th>
+      <th>Value</th>
+      <th class="actions">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @available_locales.each do |locale| %>
+      <% row = @rows_by_locale[locale.to_sym] %>
+      <tr>
+        <td><%= locale %><% if locale.to_sym == dev_locale %> <span class="muted">(source)</span><% end %></td>
+        <td>
+          <% if row && row.value.present? %>
+            <%= render_value(row) %>
+          <% else %>
+            <span class="muted">—</span>
+          <% end %>
+        </td>
+        <td class="actions">
+          <%= link_to "Edit", edit_translation_path(@key, locale) %>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

@@ -1,0 +1,23 @@
+<h1><%= E18n.t("Welcome to the escriba dummy app") %></h1>
+
+<p><%= E18n.t("This page exercises E18n.t across singular, plural, interpolated, and meaning-disambiguated calls.") %></p>
+
+<h2><%= E18n.t("Singular examples") %></h2>
+<ul>
+  <li><%= E18n.t("Save", meaning: "to store") %></li>
+  <li><%= E18n.t("Save", meaning: "to rescue") %> (different meaning → different key)</li>
+  <li><%= E18n.t("Hello %{name}, you have %{count} new messages", name: "Roger", count: 7) %></li>
+</ul>
+
+<h2><%= E18n.t("Plural examples") %></h2>
+<ul>
+  <li><%= E18n.t(one: "1 item in your inbox", other: "%{count} items in your inbox", count: 1) %></li>
+  <li><%= E18n.t(one: "1 item in your inbox", other: "%{count} items in your inbox", count: 5) %></li>
+</ul>
+
+<h2><%= E18n.t("Links") %></h2>
+<ul>
+  <li><%= link_to E18n.t("View this page in Spanish"), demo_spanish_path %></li>
+  <li><%= link_to E18n.t("Pluralization demo"), demo_plural_path(count: 3) %></li>
+  <li><%= link_to E18n.t("Manage translations"), escriba.translations_path %></li>
+</ul>

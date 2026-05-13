@@ -8,17 +8,14 @@ Gem::Specification.new do |spec|
   spec.authors = ["Roger Campos"]
   spec.email = ["roger@rogercampos.com"]
 
-  spec.summary = "TODO: Write a short summary, because RubyGems requires one."
-  spec.description = "TODO: Write a longer description or delete this line."
-  spec.homepage = "TODO: Put your gem's website or public repo URL here."
+  spec.summary = "Translations for Rails without translation keys."
+  spec.description = "Escriba lets you write real copy in source code (E18n.t(\"Save\")) and manages translations via a DB-backed admin UI, while keeping all of Rails' I18n machinery."
+  spec.homepage = "https://github.com/rogercampos/escriba"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
 
-  spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
-
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "TODO: Put your gem's public repo URL here."
-  spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
+  spec.metadata["source_code_uri"] = spec.homepage
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
@@ -32,6 +29,12 @@ Gem::Specification.new do |spec|
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
+
+  # Runtime dependencies
+  spec.add_dependency "concurrent-ruby", "~> 1.0"
+  spec.add_dependency "i18n", ">= 1.6"
+  spec.add_dependency "activerecord", ">= 7.0"
+  spec.add_dependency "railties", ">= 7.0"
 
   # Development dependencies for testing
   spec.add_development_dependency "mocha", "~> 2.1"

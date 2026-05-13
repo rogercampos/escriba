@@ -1,0 +1,13 @@
+<h1>Pluralization demo</h1>
+
+<p>Count: <strong><%= @count %></strong></p>
+
+<p><%= E18n.t(one: "1 item in your inbox", other: "%{count} items in your inbox", count: @count) %></p>
+
+<p>
+  <% [0, 1, 2, 5, 100].each do |n| %>
+    <%= link_to n, demo_plural_path(count: n) %>
+  <% end %>
+</p>
+
+<p><%= link_to "Back", root_path %></p>

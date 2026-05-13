@@ -1,0 +1,52 @@
+<h1>Translations</h1>
+
+<div class="locale-tabs">
+  <% @available_locales.each do |loc| %>
+    <%= link_to loc, translations_path(locale: loc), class: (loc.to_sym == @locale ? "active" : nil) %>
+  <% end %>
+</div>
+
+<% if @locale != dev_locale %>
+  <p>
+    <% if params[:missing].present? %>
+      <%= link_to "Show all", translations_path(locale: @locale) %>
+    <% else %>
+      <%= link_to "Show only missing translations", translations_path(locale: @locale, missing: 1) %>
+    <% end %>
+  </p>
+<% end %>
+
+<% if @dev_rows.empty? %>
+  <p class="muted">No translations recorded yet. Strings show up here after the host application runs <code>E18n.t(...)</code> at least once.</p>
+<% else %>
+  <table>
+    <thead>
+      <tr>
+        <th>Source (<%= dev_locale %>)</th>
+        <th><%= @locale %></th>
+        <th>Meaning</th>
+        <th class="actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @dev_rows.each do |dev| %>
+        <% target = @values[dev.key] %>
+        <tr>
+          <td><%= render_source(dev) %></td>
+          <td>
+            <% if target && target.value.present? %>
+              <%= render_value(target) %>
+            <% else %>
+              <span class="muted">—</span>
+            <% end %>
+          </td>
+          <td><span class="meaning"><%= dev.meaning %></span></td>
+          <td class="actions">
+            <%= link_to "Edit", edit_translation_path(dev.key, @locale) %>
+            <%= link_to "All locales", translation_path(dev.key) %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

@@ -2,6 +2,10 @@ PATH
   remote: ../gem
   specs:
     escriba (0.1.0)
+      activerecord (>= 7.0)
+      concurrent-ruby (~> 1.0)
+      i18n (>= 1.6)
+      railties (>= 7.0)
 
 GEM
   remote: https://rubygems.org/
