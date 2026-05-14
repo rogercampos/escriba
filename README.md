@@ -17,6 +17,8 @@ admin UI mounted in your host app.
 Underneath it's still Rails I18n: pluralization rules, interpolation, fallback
 chains, and YAML translations all keep working untouched.
 
+> **Status:** alpha (`0.1.0`). The public API may change before `1.0`.
+
 ## Why
 
 Translation keys are an indirection nobody asked for. `t("users.show.profile.edit_button")`
@@ -31,6 +33,8 @@ translate real strings, with a `meaning:` hint when context isn't obvious from
 the string alone.
 
 ## Installation
+
+Requirements: Ruby ≥ 3.1, Rails ≥ 7.0.
 
 Add to your `Gemfile`:
 
@@ -63,13 +67,15 @@ Escriba.configure do |config|
 end
 ```
 
-The callable receives the controller; halt the request by rendering or
-redirecting from it (Sidekiq Web pattern).
+The callable runs as a standard Rails `before_action` in the engine's
+controllers and receives the controller instance; halt the request by
+rendering or redirecting from it.
 
 ## Quick start
 
-Replace `t("save_button")` with `E18n.t("Save")` in views and controllers. That
-is the whole API for the singular case.
+Replace `t("save_button")` with `E18n.t("Save")`. That is the whole API for the
+singular case. `E18n.t` works anywhere `I18n.t` works — views, controllers,
+mailers, jobs, POROs.
 
 ```erb
 <h1><%= E18n.t("Welcome back, %{name}", name: current_user.name) %></h1>
@@ -77,8 +83,10 @@ is the whole API for the singular case.
 <p><%= E18n.t(one: "1 item", other: "%{count} items", count: cart.size) %></p>
 ```
 
-Visit `/escriba` to translate strings into other locales. Translations become
-effective on the next deploy.
+Strings are discovered at runtime: each one appears in the admin UI the first
+time the host app renders it in production. Visit `/escriba` to translate
+discovered strings into other locales. Translations become effective on the
+next deploy.
 
 ## Mental model
 
@@ -91,9 +99,11 @@ There are two locale concepts:
    database with the source copy.
 
 2. **All other locales** — read from the database. Missing entries fall through
-   Rails' normal I18n fallback chain, which lands on the `dev_locale` (i.e., the
-   source). So an untranslated Spanish page in production shows English copy
-   straight from the code.
+   Rails' normal I18n fallback chain, which lands on the `dev_locale` — by
+   default that's the `dev_locale` row in the DB (seeded on first access from
+   the source string), or with `dev_locale_from_code = true` it's the source
+   string in code directly. Either way, an untranslated Spanish page in
+   production shows English copy that ultimately originated in the source.
 
 ### Environment behavior
 
@@ -101,8 +111,29 @@ There are two locale concepts:
 |---|---|---|
 | dev / test | == `dev_locale` | Return source from code. No DB, no cache. |
 | dev / test | != `dev_locale` | Cache → DB → fallback chain (lands on source). On miss seeds `dev_locale` row. |
-| production | == `dev_locale` | Cache → DB. On miss inserts source as value, returns source. |
-| production | != `dev_locale` | Cache → DB. On miss seeds `dev_locale` row, returns nil → fallback chain. |
+| production (default) | == `dev_locale` | Cache → DB. On miss inserts source as value, returns source. |
+| production (default) | != `dev_locale` | Cache → DB. On miss seeds `dev_locale` row, returns nil → fallback chain. |
+| production, `dev_locale_from_code = true` | == `dev_locale` | Return source from code. No DB, no cache. |
+| production, `dev_locale_from_code = true` | != `dev_locale` | Cache → DB. On miss seeds `dev_locale` row, returns nil → fallback chain (lands on source). |
+
+### Two modes for the dev_locale
+
+Some teams want the `dev_locale` (e.g. `en`) editable in the admin UI like any
+other locale — content writers iterate on copy without a deploy. Other teams
+want copy changes to flow through pull requests so source code is the single
+source of truth.
+
+Set `config.dev_locale_from_code = true` to opt into the second mode. With it
+on, the `dev_locale` always reads from source code regardless of environment —
+just like dev/test does by default. The admin UI hides the `dev_locale` from
+the editable tabs and refuses direct edit attempts. Discovery still works:
+when a non-dev locale request misses in the DB, a `dev_locale` row is still
+seeded so translators can see what strings exist.
+
+| `dev_locale_from_code` | What changes |
+|---|---|
+| `false` (default) | `dev_locale` rows are editable in the admin UI; runtime reads them from the DB in production. |
+| `true` | `dev_locale` always served from source code; admin UI shows the source as read-only. |
 
 ### Caching and refresh
 
@@ -175,6 +206,7 @@ the old translations. This is deliberate — see "Not supported" below.
 ```ruby
 Escriba.configure do |config|
   config.dev_locale = :en               # locale represented by source code
+  config.dev_locale_from_code = false   # true = dev_locale always from code, not DB
   config.authenticate_with = ->(c) { } # required outside dev/test
   config.available_locales = %i[en es]  # defaults to I18n.available_locales
 end

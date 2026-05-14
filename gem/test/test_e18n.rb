@@ -304,6 +304,70 @@ class TestE18n < Minitest::Test
     assert_equal %w[name count], row.interpolation_names
   end
 
+  # ---------------- dev_locale_from_code mode ----------------
+
+  def test_prod_dev_locale_from_code_short_circuits_to_source
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    Escriba.configure { |c| c.dev_locale_from_code = true }
+
+    assert_equal "Save", E18n.t("Save")
+    assert_equal 0, Escriba::Translation.where(locale: "en").count
+  end
+
+  def test_prod_dev_locale_from_code_ignores_db_row_for_dev_locale
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    Escriba.configure { |c| c.dev_locale_from_code = true }
+
+    hash_key = Escriba::KeyDeriver.for_singular("Save")
+    Escriba::Translation.create!(
+      key: hash_key, locale: "en",
+      value: "Save (edited via UI)", source_copy: "Save",
+    )
+
+    assert_equal "Save", E18n.t("Save")
+  end
+
+  def test_prod_dev_locale_from_code_still_seeds_dev_row_for_discovery
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    Escriba.configure { |c| c.dev_locale_from_code = true }
+
+    I18n.locale = :es
+    assert_equal "Save", E18n.t("Save")
+
+    assert Escriba::Translation.exists?(locale: "en")
+    refute Escriba::Translation.exists?(locale: "es")
+  end
+
+  def test_prod_dev_locale_from_code_still_serves_non_dev_locale_from_db
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    Escriba.configure { |c| c.dev_locale_from_code = true }
+
+    hash_key = Escriba::KeyDeriver.for_singular("Save")
+    Escriba::Translation.create!(
+      key: hash_key, locale: "es",
+      value: "Guardar", source_copy: "Save",
+    )
+
+    I18n.locale = :es
+    assert_equal "Guardar", E18n.t("Save")
+  end
+
+  def test_prod_dev_locale_from_code_pluralizes_source_directly
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    Escriba.configure { |c| c.dev_locale_from_code = true }
+
+    assert_equal "1 item",
+      E18n.t(one: "1 item", other: "%{count} items", count: 1)
+    assert_equal "7 items",
+      E18n.t(one: "1 item", other: "%{count} items", count: 7)
+    assert_equal 0, Escriba::Translation.count
+  end
+
   # ---------------- Non-Escriba I18n keys still work ----------------
 
   def test_non_escriba_keys_pass_through_to_simple_backend

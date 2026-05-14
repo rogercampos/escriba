@@ -40,6 +40,10 @@ module Escriba
     def dev_or_test?
       %w[development test].include?(env.to_s)
     end
+
+    def dev_locale_in_code?
+      dev_or_test? || config.dev_locale_from_code
+    end
   end
 end
 

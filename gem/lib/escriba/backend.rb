@@ -29,7 +29,7 @@ module Escriba
       dev_locale = Escriba.config.dev_locale
       source = Thread.current[:escriba_source]
 
-      if Escriba.dev_or_test? && locale == dev_locale
+      if Escriba.dev_locale_in_code? && locale == dev_locale
         return source_value(source)
       end
 

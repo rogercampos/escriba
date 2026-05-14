@@ -35,17 +35,28 @@
   <tbody>
     <% @available_locales.each do |locale| %>
       <% row = @rows_by_locale[locale.to_sym] %>
+      <% locale_sym = locale.to_sym %>
+      <% read_only = dev_locale_from_code? && locale_sym == dev_locale %>
       <tr>
-        <td><%= locale %><% if locale.to_sym == dev_locale %> <span class="muted">(source)</span><% end %></td>
         <td>
-          <% if row && row.value.present? %>
+          <%= locale %>
+          <% if locale_sym == dev_locale %>
+            <span class="muted">(<%= read_only ? "from source code" : "source" %>)</span>
+          <% end %>
+        </td>
+        <td>
+          <% if read_only %>
+            <% if @dev_row %><%= render_source(@dev_row) %><% end %>
+          <% elsif row && row.value.present? %>
             <%= render_value(row) %>
           <% else %>
             <span class="muted">—</span>
           <% end %>
         </td>
         <td class="actions">
-          <%= link_to "Edit", edit_translation_path(@key, locale) %>
+          <% unless read_only %>
+            <%= link_to "Edit", edit_translation_path(@key, locale) %>
+          <% end %>
         </td>
       </tr>
     <% end %>

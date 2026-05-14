@@ -4,7 +4,7 @@ module Escriba
   class TranslationsController < ApplicationController
     def index
       @locale = current_locale_param
-      @available_locales = Escriba.config.available_locales
+      @available_locales = editable_locales
 
       dev_rows = Escriba::Translation.for_locale(dev_locale).order(:source_copy)
       dev_rows = filter_missing(dev_rows) if params[:missing].present? && @locale != dev_locale
@@ -29,12 +29,16 @@ module Escriba
     def edit
       @key = params[:key]
       @locale = params[:locale].to_sym
+      return if reject_dev_locale_edit
+
       load_or_initialize_row
     end
 
     def update
       @key = params[:key]
       @locale = params[:locale].to_sym
+      return if reject_dev_locale_edit
+
       load_or_initialize_row
 
       assign_value
@@ -47,6 +51,14 @@ module Escriba
     end
 
     private
+
+    def reject_dev_locale_edit
+      return false unless dev_locale_from_code? && @locale == dev_locale
+
+      redirect_to translation_path(@key),
+        alert: "The #{@locale} locale is managed in source code and cannot be edited."
+      true
+    end
 
     def filter_missing(dev_rows)
       translated_keys = Escriba::Translation

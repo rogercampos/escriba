@@ -19,6 +19,15 @@ class TestConfiguration < Minitest::Test
     assert_nil Escriba.config.authenticate_with
   end
 
+  def test_default_dev_locale_from_code_is_false
+    refute Escriba.config.dev_locale_from_code
+  end
+
+  def test_can_set_dev_locale_from_code
+    Escriba.configure { |c| c.dev_locale_from_code = true }
+    assert Escriba.config.dev_locale_from_code
+  end
+
   def test_configure_block_yields_config
     Escriba.configure do |c|
       c.dev_locale = :de
