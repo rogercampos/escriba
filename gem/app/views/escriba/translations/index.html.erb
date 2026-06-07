@@ -42,7 +42,9 @@
           </td>
           <td><span class="meaning"><%= dev.meaning %></span></td>
           <td class="actions">
-            <%= link_to "Edit", edit_translation_path(dev.key, @locale) %>
+            <% unless dev_locale_from_code? && @locale == dev_locale %>
+              <%= link_to "Edit", edit_translation_path(dev.key, @locale) %>
+            <% end %>
             <%= link_to "All locales", translation_path(dev.key) %>
           </td>
         </tr>

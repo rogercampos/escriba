@@ -7,7 +7,7 @@ Escriba.configure do |config|
   # Always read the dev_locale from source code (skip the DB for it).
   # Use this when developers manage all source copy via PRs and no content
   # team needs to edit the dev_locale in the admin UI.
-  # config.dev_locale_from_code = true
+  config.dev_locale_from_code = true
 
   # Authentication callable invoked as a before_action in the engine's controllers.
   # REQUIRED outside development/test — Rails will refuse to boot if unset.
