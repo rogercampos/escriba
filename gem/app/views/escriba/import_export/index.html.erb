@@ -1,12 +1,12 @@
 <div class="mb-6 flex items-center gap-3">
   <h1 class="text-2xl font-semibold tracking-tight">Import / Export</h1>
-  <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">Coming soon</span>
+  <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">Coming soon</span>
 </div>
 
 <div class="grid gap-6 lg:grid-cols-2">
-  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200">
+  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5">
     <h2 class="mb-1 text-lg font-semibold tracking-tight">Import</h2>
-    <p class="mb-4 text-sm text-gray-500">
+    <p class="mb-4 max-w-prose text-sm text-pretty text-zinc-500">
       Bulk-load translations from a file, matched to strings by source copy (or
       by Escriba key for round-trips). A dry-run preview will show matches,
       conflicts and unmatched rows before anything is written.
@@ -14,24 +14,29 @@
 
     <fieldset disabled class="space-y-4 opacity-60">
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700">Locale</label>
-        <select class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300">
-          <% @locales.each do |locale| %><option><%= locale %></option><% end %>
-        </select>
+        <label for="import_locale" class="mb-1 block text-sm font-medium text-zinc-700">Locale</label>
+        <div class="grid grid-cols-[1fr_--spacing(8)]">
+          <select id="import_locale" class="col-span-full row-start-1 appearance-none rounded-md border-0 py-2 pr-8 pl-3 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-300">
+            <% @locales.each do |locale| %><option><%= locale %></option><% end %>
+          </select>
+          <svg viewBox="0 0 8 5" width="8" height="5" fill="none" class="pointer-events-none col-start-2 row-start-1 place-self-center text-zinc-500">
+            <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+          </svg>
+        </div>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700">File <span class="font-normal text-gray-400">(CSV, XLIFF, JSON, gettext PO)</span></label>
-        <div class="flex items-center justify-center rounded-md border-2 border-dashed border-gray-300 px-6 py-8 text-sm text-gray-400">
+        <label class="mb-1 block text-sm font-medium text-zinc-700">File <span class="font-normal text-zinc-400">(CSV, XLIFF, JSON, gettext PO)</span></label>
+        <div class="flex items-center justify-center rounded-md border-2 border-dashed border-zinc-950/15 px-6 py-8 text-sm text-zinc-400">
           Drop a file here
         </div>
       </div>
-      <button type="button" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">Preview import</button>
+      <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm">Preview import</button>
     </fieldset>
   </section>
 
-  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200">
+  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5">
     <h2 class="mb-1 text-lg font-semibold tracking-tight">Export</h2>
-    <p class="mb-4 text-sm text-gray-500">
+    <p class="mb-4 max-w-prose text-sm text-pretty text-zinc-500">
       Download translations to hand off to a translator or service — including
       source copy, meaning and interpolation hints as context. Optionally limit
       to missing entries for a given locale.
@@ -39,20 +44,28 @@
 
     <fieldset disabled class="space-y-4 opacity-60">
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700">Locale</label>
-        <select class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300">
-          <option>All locales</option>
-          <% @locales.each do |locale| %><option><%= locale %></option><% end %>
-        </select>
+        <label for="export_locale" class="mb-1 block text-sm font-medium text-zinc-700">Locale</label>
+        <div class="grid grid-cols-[1fr_--spacing(8)]">
+          <select id="export_locale" class="col-span-full row-start-1 appearance-none rounded-md border-0 py-2 pr-8 pl-3 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-300">
+            <option>All locales</option>
+            <% @locales.each do |locale| %><option><%= locale %></option><% end %>
+          </select>
+          <svg viewBox="0 0 8 5" width="8" height="5" fill="none" class="pointer-events-none col-start-2 row-start-1 place-self-center text-zinc-500">
+            <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+          </svg>
+        </div>
       </div>
-      <label class="flex items-center gap-2 text-sm text-gray-700">
-        <input type="checkbox" class="rounded border-gray-300"> Only missing entries
+      <label class="flex items-center gap-2 text-sm text-zinc-700">
+        <span class="inline-grid size-4 grid-cols-1">
+          <input type="checkbox" class="col-start-1 row-start-1 size-4 appearance-none rounded-sm border border-zinc-300 bg-white" />
+        </span>
+        Only missing entries
       </label>
-      <button type="button" class="rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">Export</button>
+      <button type="button" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-zinc-700 shadow-sm ring-1 ring-inset ring-zinc-300">Export</button>
     </fieldset>
   </section>
 </div>
 
-<p class="mt-6 text-sm text-gray-400">
+<p class="mt-6 text-sm text-zinc-400">
   This screen is a placeholder — no import or export is wired up yet.
 </p>

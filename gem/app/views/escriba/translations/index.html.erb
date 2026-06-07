@@ -1,24 +1,24 @@
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
   <h1 class="text-2xl font-semibold tracking-tight">Translations</h1>
 
-  <nav class="flex flex-wrap items-center gap-2">
+  <nav class="flex flex-wrap items-center gap-1">
     <% @available_locales.each do |loc| %>
       <% active = loc.to_sym == @locale %>
-      <%= link_to loc, translations_path(locale: loc),
-        class: "rounded-full px-3 py-1 text-sm font-medium transition #{active ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}" %>
+      <%= link_to loc, translations_path(locale: loc, filter: (@filter unless @filter == "all"), q: @query.presence),
+        class: "rounded-full px-3 py-1 text-sm font-medium uppercase #{active ? 'bg-blue-50 text-blue-700' : 'text-zinc-600 hover:bg-zinc-100'}" %>
     <% end %>
   </nav>
 </div>
 
 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
   <% if @locale != dev_locale %>
-    <div class="inline-flex rounded-md bg-gray-100 p-0.5 text-sm">
+    <div class="inline-flex rounded-md bg-zinc-100 p-0.5 text-sm">
       <% [["all", "All"], ["missing", "Missing"], ["issues", "Issues"]].each do |value, label| %>
         <% on = @filter == value %>
         <%= link_to translations_path(locale: @locale, filter: value, q: @query.presence),
-          class: "rounded px-3 py-1 font-medium transition #{on ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}" do %>
+          class: "rounded px-3 py-1 font-medium #{on ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}" do %>
           <%= label %>
-          <span class="ml-1 text-xs text-gray-400"><%= @counts[value.to_sym] %></span>
+          <span class="text-zinc-400 tabular-nums"><%= @counts[value.to_sym] %></span>
         <% end %>
       <% end %>
     </div>
@@ -29,59 +29,67 @@
   <%= form_with url: translations_path, method: :get, class: "flex items-center gap-2" do %>
     <%= hidden_field_tag :locale, @locale %>
     <%= hidden_field_tag :filter, @filter %>
-    <%= search_field_tag :q, @query, placeholder: "Search source copy…",
-      class: "w-56 rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600" %>
+    <%= search_field_tag :q, @query, placeholder: "Search source copy…", "aria-label": "Search source copy",
+      class: "w-56 rounded-md border-0 px-3 py-1.5 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 max-sm:text-base" %>
     <% if @query.present? %>
-      <%= link_to "Clear", translations_path(locale: @locale, filter: @filter), class: "text-sm text-gray-500 hover:text-gray-700" %>
+      <%= link_to "Clear", translations_path(locale: @locale, filter: @filter), class: "text-sm text-zinc-500 hover:text-zinc-700" %>
     <% end %>
   <% end %>
 </div>
 
 <% if @dev_rows.empty? %>
-  <div class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-12 text-center text-sm text-gray-500">
+  <div class="rounded-lg border border-dashed border-zinc-950/10 bg-white p-12 text-center text-sm text-zinc-500">
     <% if @query.present? || @filter != "all" %>
       No strings match this filter.
     <% else %>
       No translations recorded yet. Strings show up here after the host application runs
-      <code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700">E18n.t(...)</code> at least once.
+      <code class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-zinc-700">E18n.t(...)</code> at least once.
     <% end %>
   </div>
 <% else %>
-  <div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-    <table class="min-w-full divide-y divide-gray-200 text-sm">
-      <thead class="bg-gray-50">
-        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-          <th class="px-4 py-3">Source (<%= dev_locale %>)</th>
-          <th class="px-4 py-3"><%= @locale %></th>
-          <th class="px-4 py-3">Meaning</th>
-          <th class="px-4 py-3 text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        <% @dev_rows.each do |dev| %>
-          <% target = @values[dev.key] %>
-          <tr class="align-top hover:bg-gray-50">
-            <td class="px-4 py-3 text-gray-900"><%= render_source(dev) %></td>
-            <td class="px-4 py-3">
-              <% if target && target.value.present? %>
-                <span class="text-gray-900"><%= render_value(target) %></span>
-                <% if @locale != dev_locale %>
-                  <div class="mt-1"><%= render_issue_badges(translation_issues(dev, target)) %></div>
-                <% end %>
-              <% else %>
-                <span class="italic text-gray-400">—</span>
-              <% end %>
-            </td>
-            <td class="px-4 py-3 text-xs text-gray-500"><%= dev.meaning %></td>
-            <td class="px-4 py-3 text-right whitespace-nowrap">
-              <% unless dev_locale_from_code? && @locale == dev_locale %>
-                <%= link_to "Edit", edit_translation_path(dev.key, @locale), class: "font-medium text-indigo-600 hover:text-indigo-500" %>
-              <% end %>
-              <%= link_to "All locales", translation_path(dev.key), class: "ml-3 font-medium text-gray-500 hover:text-gray-700" %>
-            </td>
+  <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+    <div class="inline-block min-w-full px-4 py-2 align-middle sm:px-6 lg:px-8">
+      <table class="min-w-full divide-y divide-zinc-950/5 text-sm">
+        <thead>
+          <tr class="text-left font-semibold text-zinc-900">
+            <th scope="col" class="py-3 pr-3 pl-0 whitespace-nowrap">Source (<%= dev_locale %>)</th>
+            <th scope="col" class="px-3 py-3 whitespace-nowrap"><%= @locale %></th>
+            <th scope="col" class="py-3 pr-0 pl-3 text-right whitespace-nowrap">Actions</th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody class="divide-y divide-zinc-950/5">
+          <% @dev_rows.each do |dev| %>
+            <% target = @values[dev.key] %>
+            <tr class="align-top hover:bg-zinc-50">
+              <td class="py-3 pr-3 pl-0">
+                <%= link_to translation_path(dev.key), class: "font-medium text-zinc-900 hover:text-blue-600" do %>
+                  <%= render_source(dev) %>
+                <% end %>
+                <% if dev.meaning.present? %>
+                  <div class="mt-0.5 text-sm text-zinc-400">“<%= dev.meaning %>”</div>
+                <% end %>
+              </td>
+              <td class="px-3 py-3">
+                <% if target && target.value.present? %>
+                  <span class="text-zinc-900"><%= render_value(target) %></span>
+                  <% if @locale != dev_locale %>
+                    <div class="mt-1"><%= render_issue_badges(translation_issues(dev, target)) %></div>
+                  <% end %>
+                <% else %>
+                  <span class="text-zinc-400 italic">—</span>
+                <% end %>
+              </td>
+              <td class="py-3 pr-0 pl-3 text-right whitespace-nowrap">
+                <% if dev_locale_from_code? && @locale == dev_locale %>
+                  <span class="text-zinc-400">read-only</span>
+                <% else %>
+                  <%= link_to "Edit", edit_translation_path(dev.key, @locale), class: "font-medium text-blue-600 hover:text-blue-500" %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
   </div>
 <% end %>

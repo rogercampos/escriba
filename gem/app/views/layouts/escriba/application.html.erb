@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="h-full">
+<html class="h-full antialiased">
 <head>
   <title>Escriba — Translations</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -9,43 +9,38 @@
       app/assets/tailwind/escriba/engine.css — see README "Styling / Tailwind". %>
   <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
 </head>
-<body class="h-full bg-gray-50 text-gray-900 antialiased">
-  <header class="bg-gray-900 text-white">
-    <div class="mx-auto max-w-5xl px-6">
-      <div class="flex items-center gap-3 py-3">
-        <%= link_to dashboard_path, class: "flex items-center gap-2 font-semibold tracking-tight hover:text-gray-300" do %>
-          <span class="inline-flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-xs font-bold">E</span>
-          Escriba
-        <% end %>
-      </div>
+<body class="flex h-full flex-col bg-zinc-50 text-zinc-900">
+  <header class="bg-zinc-900 text-white">
+    <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+      <%= link_to "Escriba", dashboard_path, "aria-label": "Escriba dashboard",
+        class: "font-semibold tracking-tight hover:text-zinc-300" %>
       <% nav = [["Dashboard", dashboard_path, %w[dashboard]],
                 ["Translations", translations_path, %w[translations]],
                 ["Issues", issues_path, %w[issues]],
                 ["Import / Export", import_export_path, %w[import_export]]] %>
-      <nav class="flex flex-wrap gap-1 -mb-px text-sm">
+      <nav class="flex gap-1 overflow-x-auto text-sm">
         <% nav.each do |label, path, controllers| %>
           <% active = controllers.include?(controller.controller_name) %>
           <%= link_to label, path,
-            class: "border-b-2 px-3 py-2 font-medium transition #{active ? 'border-indigo-400 text-white' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}" %>
+            class: "rounded-md px-3 py-1.5 font-medium #{active ? 'bg-white/10 text-white' : 'text-zinc-300 hover:bg-white/5 hover:text-white'}" %>
         <% end %>
       </nav>
     </div>
   </header>
 
-  <main class="mx-auto max-w-5xl px-6 py-8">
-    <div class="mb-6 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <span aria-hidden="true">⚠️</span>
-      <span>Translation edits become effective on the next deploy.</span>
-    </div>
-
+  <main class="mx-auto w-full max-w-5xl grow px-4 py-8 sm:px-6 lg:px-8">
     <% if notice %>
-      <div class="mb-6 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"><%= notice %></div>
+      <div class="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800 ring-1 ring-inset ring-green-600/10"><%= notice %></div>
     <% end %>
     <% if alert %>
-      <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><%= alert %></div>
+      <div class="mb-6 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-inset ring-red-600/10"><%= alert %></div>
     <% end %>
 
     <%= yield %>
   </main>
+
+  <footer class="mx-auto w-full max-w-5xl px-4 pb-8 sm:px-6 lg:px-8">
+    <p class="text-xs text-zinc-400">Translations are cached per process — edits become effective on the next deploy.</p>
+  </footer>
 </body>
 </html>

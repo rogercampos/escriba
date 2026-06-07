@@ -1,41 +1,43 @@
 <div class="mb-2 flex flex-wrap items-baseline justify-between gap-3">
   <h1 class="text-2xl font-semibold tracking-tight">Issues</h1>
-  <p class="text-sm text-gray-500"><%= pluralize(@issues.size, "issue") %> found</p>
+  <p class="text-sm text-zinc-500 tabular-nums"><%= pluralize(@issues.size, "issue") %> found</p>
 </div>
-<p class="mb-6 text-sm text-gray-500">
+<p class="mb-6 max-w-prose text-sm text-pretty text-zinc-500">
   Quality problems with existing translations. Untranslated values and broken
   interpolations show up here; entirely missing translations live under each
-  locale's <span class="font-medium text-gray-700">Missing</span> filter.
+  locale's <span class="font-medium text-zinc-700">Missing</span> filter.
   <% if @capped %><br>Scanned the first <%= @scanned %> strings.<% end %>
 </p>
 
 <% if @issues.empty? %>
-  <div class="rounded-lg border border-dashed border-green-300 bg-green-50 px-6 py-12 text-center text-sm text-green-700">
-    ✓ No issues found across the scanned strings.
+  <div class="rounded-lg border border-dashed border-green-600/20 bg-green-50 p-12 text-center text-sm text-green-700">
+    No issues found across the scanned strings.
   </div>
 <% else %>
-  <div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
-    <table class="min-w-full divide-y divide-gray-200 text-sm">
-      <thead class="bg-gray-50">
-        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-          <th class="px-4 py-3">Locale</th>
-          <th class="px-4 py-3">Source</th>
-          <th class="px-4 py-3">Problems</th>
-          <th class="px-4 py-3 text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        <% @issues.each do |entry| %>
-          <tr class="align-top hover:bg-gray-50">
-            <td class="px-4 py-3 whitespace-nowrap font-medium uppercase text-gray-900"><%= entry[:locale] %></td>
-            <td class="px-4 py-3 text-gray-900"><%= truncate(source_text(entry[:dev]), length: 80) %></td>
-            <td class="px-4 py-3"><%= render_issue_badges(entry[:issues], skip_missing: false) %></td>
-            <td class="px-4 py-3 text-right whitespace-nowrap">
-              <%= link_to "Fix", edit_translation_path(entry[:dev].key, entry[:locale]), class: "font-medium text-indigo-600 hover:text-indigo-500" %>
-            </td>
+  <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+    <div class="inline-block min-w-full px-4 py-2 align-middle sm:px-6 lg:px-8">
+      <table class="min-w-full divide-y divide-zinc-950/5 text-sm">
+        <thead>
+          <tr class="text-left font-semibold text-zinc-900">
+            <th scope="col" class="py-3 pr-3 pl-0 whitespace-nowrap">Locale</th>
+            <th scope="col" class="px-3 py-3 whitespace-nowrap">Source</th>
+            <th scope="col" class="px-3 py-3 whitespace-nowrap">Problems</th>
+            <th scope="col" class="py-3 pr-0 pl-3 text-right whitespace-nowrap">Actions</th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody class="divide-y divide-zinc-950/5">
+          <% @issues.each do |entry| %>
+            <tr class="align-top hover:bg-zinc-50">
+              <td class="py-3 pr-3 pl-0 font-medium uppercase whitespace-nowrap text-zinc-900"><%= entry[:locale] %></td>
+              <td class="px-3 py-3 text-zinc-900"><%= truncate(source_text(entry[:dev]), length: 80) %></td>
+              <td class="px-3 py-3"><%= render_issue_badges(entry[:issues], skip_missing: false) %></td>
+              <td class="py-3 pr-0 pl-3 text-right whitespace-nowrap">
+                <%= link_to "Fix", edit_translation_path(entry[:dev].key, entry[:locale]), class: "font-medium text-blue-600 hover:text-blue-500" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
   </div>
 <% end %>

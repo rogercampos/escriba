@@ -22,8 +22,8 @@ module Escriba
     end
 
     SEVERITY_CLASSES = {
-      error: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200",
-      warning: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+      error: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10",
+      warning: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/10",
     }.freeze
 
     # Render lint issues as small badges. By default the "missing" code is
