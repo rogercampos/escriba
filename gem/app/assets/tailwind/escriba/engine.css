@@ -1,0 +1,19 @@
+/*
+ * Escriba admin UI — Tailwind sources.
+ *
+ * This file is consumed by tailwindcss-rails' (experimental) engine support:
+ * on build/watch the host app generates app/assets/builds/tailwind/escriba.css
+ * which `@import`s this file by its ABSOLUTE path in the bundle. Because
+ * Tailwind v4 resolves `@source` relative to the file that declares it, the
+ * globs below point at *this gem's* own templates — so the host's unified
+ * Tailwind build scans them and keeps the utility classes the admin UI uses.
+ *
+ * The host opts in with a single line in app/assets/tailwind/application.css:
+ *
+ *     @import "../builds/tailwind/escriba";
+ *
+ * See README "Styling / Tailwind" for the full setup.
+ */
+
+@source "../../../views";
+@source "../../../helpers";

@@ -1,64 +1,75 @@
-<div class="breadcrumbs">
-  <%= link_to "All translations", translations_path %> &rsaquo; <%= @key %>
-</div>
+<nav class="mb-4 flex items-center gap-1 text-sm text-gray-500">
+  <%= link_to "All translations", translations_path, class: "text-indigo-600 hover:text-indigo-500" %>
+  <span aria-hidden="true">›</span>
+  <span class="font-mono text-gray-400"><%= @key %></span>
+</nav>
 
-<h1>Translation</h1>
+<h1 class="mb-6 text-2xl font-semibold tracking-tight">Translation</h1>
 
-<div class="field">
-  <label>Source copy (<%= dev_locale %>)</label>
-  <div class="source-box"><%= render_source(@dev_row) %></div>
-</div>
+<div class="mb-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200">
+  <dl class="space-y-4">
+    <div>
+      <dt class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Source copy (<%= dev_locale %>)</dt>
+      <dd class="whitespace-pre-wrap rounded-md bg-gray-100 px-3 py-2 font-mono text-sm text-gray-800"><%= render_source(@dev_row) %></dd>
+    </div>
 
-<% if @dev_row.meaning.present? %>
-  <div class="field">
-    <label>Meaning</label>
-    <div><%= @dev_row.meaning %></div>
-  </div>
-<% end %>
-
-<% if @dev_row.interpolation_names.present? %>
-  <div class="field">
-    <label>Interpolations</label>
-    <div><code><%= Array(@dev_row.interpolation_names).map { |n| "%{#{n}}" }.join(", ") %></code></div>
-  </div>
-<% end %>
-
-<h2>Locales</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Locale</th>
-      <th>Value</th>
-      <th class="actions">Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% @available_locales.each do |locale| %>
-      <% row = @rows_by_locale[locale.to_sym] %>
-      <% locale_sym = locale.to_sym %>
-      <% read_only = dev_locale_from_code? && locale_sym == dev_locale %>
-      <tr>
-        <td>
-          <%= locale %>
-          <% if locale_sym == dev_locale %>
-            <span class="muted">(<%= read_only ? "from source code" : "source" %>)</span>
-          <% end %>
-        </td>
-        <td>
-          <% if read_only %>
-            <% if @dev_row %><%= render_source(@dev_row) %><% end %>
-          <% elsif row && row.value.present? %>
-            <%= render_value(row) %>
-          <% else %>
-            <span class="muted">—</span>
-          <% end %>
-        </td>
-        <td class="actions">
-          <% unless read_only %>
-            <%= link_to "Edit", edit_translation_path(@key, locale) %>
-          <% end %>
-        </td>
-      </tr>
+    <% if @dev_row.meaning.present? %>
+      <div>
+        <dt class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Meaning</dt>
+        <dd class="text-sm text-gray-700"><%= @dev_row.meaning %></dd>
+      </div>
     <% end %>
-  </tbody>
-</table>
+
+    <% if @dev_row.interpolation_names.present? %>
+      <div>
+        <dt class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Interpolations</dt>
+        <dd>
+          <code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm text-gray-700"><%= Array(@dev_row.interpolation_names).map { |n| "%{#{n}}" }.join(", ") %></code>
+        </dd>
+      </div>
+    <% end %>
+  </dl>
+</div>
+
+<h2 class="mb-3 text-lg font-semibold tracking-tight">Locales</h2>
+
+<div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="bg-gray-50">
+      <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <th class="px-4 py-3">Locale</th>
+        <th class="px-4 py-3">Value</th>
+        <th class="px-4 py-3 text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      <% @available_locales.each do |locale| %>
+        <% row = @rows_by_locale[locale.to_sym] %>
+        <% locale_sym = locale.to_sym %>
+        <% read_only = dev_locale_from_code? && locale_sym == dev_locale %>
+        <tr class="align-top hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
+            <%= locale %>
+            <% if locale_sym == dev_locale %>
+              <span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-normal text-gray-500"><%= read_only ? "from source code" : "source" %></span>
+            <% end %>
+          </td>
+          <td class="px-4 py-3">
+            <% if read_only %>
+              <% if @dev_row %><span class="text-gray-900"><%= render_source(@dev_row) %></span><% end %>
+            <% elsif row && row.value.present? %>
+              <span class="text-gray-900"><%= render_value(row) %></span>
+            <% else %>
+              <span class="italic text-gray-400">—</span>
+            <% end %>
+          </td>
+          <td class="px-4 py-3 text-right whitespace-nowrap">
+            <% unless read_only %>
+              <%= link_to "Edit", edit_translation_path(@key, locale), class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

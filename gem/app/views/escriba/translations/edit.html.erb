@@ -1,50 +1,66 @@
-<div class="breadcrumbs">
-  <%= link_to "All translations", translations_path %> &rsaquo;
-  <%= link_to @key, translation_path(@key) %> &rsaquo; Edit <%= @locale %>
+<nav class="mb-4 flex flex-wrap items-center gap-1 text-sm text-gray-500">
+  <%= link_to "All translations", translations_path, class: "text-indigo-600 hover:text-indigo-500" %>
+  <span aria-hidden="true">›</span>
+  <%= link_to @key, translation_path(@key), class: "font-mono text-indigo-600 hover:text-indigo-500" %>
+  <span aria-hidden="true">›</span>
+  <span>Edit <%= @locale %></span>
+</nav>
+
+<h1 class="mb-6 text-2xl font-semibold tracking-tight">Edit <span class="text-indigo-600"><%= @locale %></span></h1>
+
+<div class="mb-6 rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200">
+  <dl class="space-y-4">
+    <div>
+      <dt class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Source copy (<%= dev_locale %>)</dt>
+      <dd class="whitespace-pre-wrap rounded-md bg-gray-100 px-3 py-2 font-mono text-sm text-gray-800"><%= render_source(@dev_row) %></dd>
+    </div>
+
+    <% if @dev_row.meaning.present? %>
+      <div>
+        <dt class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Meaning</dt>
+        <dd class="text-sm text-gray-700"><%= @dev_row.meaning %></dd>
+      </div>
+    <% end %>
+
+    <% if @dev_row.interpolation_names.present? %>
+      <div>
+        <dt class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Interpolations</dt>
+        <dd>
+          <code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm text-gray-700"><%= Array(@dev_row.interpolation_names).map { |n| "%{#{n}}" }.join(", ") %></code>
+        </dd>
+      </div>
+    <% end %>
+  </dl>
 </div>
 
-<h1>Edit <%= @locale %></h1>
-
-<div class="field">
-  <label>Source copy (<%= dev_locale %>)</label>
-  <div class="source-box"><%= render_source(@dev_row) %></div>
-</div>
-
-<% if @dev_row.meaning.present? %>
-  <div class="field">
-    <label>Meaning</label>
-    <div><%= @dev_row.meaning %></div>
-  </div>
-<% end %>
-
-<% if @dev_row.interpolation_names.present? %>
-  <div class="field">
-    <label>Interpolations</label>
-    <div><code><%= Array(@dev_row.interpolation_names).map { |n| "%{#{n}}" }.join(", ") %></code></div>
-  </div>
-<% end %>
-
-<%= form_with url: update_translation_path(@key, @locale), method: :patch, local: true do %>
+<%= form_with url: update_translation_path(@key, @locale), method: :patch, local: true,
+      class: "rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200 space-y-5" do %>
   <% if @row.plural %>
     <% existing = @row.value.is_a?(Hash) ? @row.value.transform_keys(&:to_s) : {} %>
     <% Escriba::KeyDeriver::PLURAL_FORM_KEYS.each do |form_key| %>
-      <div class="field">
-        <label>
+      <div>
+        <label class="mb-1 flex flex-wrap items-baseline gap-2 text-sm font-medium text-gray-700">
           <%= form_key %>
           <% if @dev_row.source_copy.is_a?(Hash) && @dev_row.source_copy[form_key.to_s] %>
-            <span class="muted">— source: <%= @dev_row.source_copy[form_key.to_s] %></span>
+            <span class="font-normal italic text-gray-400">source: <%= @dev_row.source_copy[form_key.to_s] %></span>
           <% end %>
         </label>
-        <input type="text" name="translation[value][<%= form_key %>]" value="<%= existing[form_key.to_s] %>">
+        <input type="text" name="translation[value][<%= form_key %>]" value="<%= existing[form_key.to_s] %>"
+          class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600">
       </div>
     <% end %>
   <% else %>
-    <div class="field">
-      <label>Translation</label>
-      <textarea name="translation[value]"><%= @row.value %></textarea>
+    <div>
+      <label class="mb-1 block text-sm font-medium text-gray-700">Translation</label>
+      <textarea name="translation[value]" rows="3"
+        class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600"><%= @row.value %></textarea>
     </div>
   <% end %>
 
-  <button type="submit">Save</button>
-  <%= link_to "Cancel", translation_path(@key) %>
+  <div class="flex items-center gap-3">
+    <button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+      Save
+    </button>
+    <%= link_to "Cancel", translation_path(@key), class: "text-sm font-medium text-gray-500 hover:text-gray-700" %>
+  </div>
 <% end %>

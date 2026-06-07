@@ -9,6 +9,7 @@ gem "turbo-rails"
 gem "stimulus-rails"
 gem "importmap-rails"
 gem "propshaft"
+gem "tailwindcss-rails", "~> 4.0"
 
 gem "escriba", path: "../gem"
 

@@ -1,45 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html class="h-full">
 <head>
   <title>Escriba — Translations</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <%= csrf_meta_tags %>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; color: #1d1d1f; background: #f5f5f7; }
-    header { background: #1d1d1f; color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
-    header a { color: #fff; text-decoration: none; font-weight: 600; }
-    main { max-width: 1100px; margin: 24px auto; padding: 0 24px; }
-    .banner { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 10px 14px; border-radius: 6px; margin-bottom: 18px; }
-    .notice { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 10px 14px; border-radius: 6px; margin-bottom: 18px; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #e5e5ea; vertical-align: top; }
-    th { background: #fafafa; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #555; }
-    tr:last-child td { border-bottom: none; }
-    .muted { color: #8e8e93; font-style: italic; }
-    .meaning { font-size: 12px; color: #666; }
-    .actions a { color: #0066cc; text-decoration: none; margin-right: 12px; }
-    .actions a:hover { text-decoration: underline; }
-    form .field { margin: 12px 0; }
-    form label { display: block; font-weight: 600; margin-bottom: 4px; }
-    form input[type=text], form textarea { width: 100%; padding: 8px 10px; border: 1px solid #c7c7cc; border-radius: 6px; font: inherit; box-sizing: border-box; }
-    form textarea { min-height: 70px; }
-    form button { background: #0066cc; color: #fff; border: 0; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; }
-    form button:hover { background: #0055aa; }
-    .locale-tabs { margin-bottom: 16px; }
-    .locale-tabs a { display: inline-block; margin-right: 8px; padding: 6px 12px; border-radius: 16px; text-decoration: none; color: #1d1d1f; background: #e5e5ea; font-size: 13px; }
-    .locale-tabs a.active { background: #0066cc; color: #fff; }
-    .source-box { background: #f5f5f7; padding: 10px 14px; border-radius: 6px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; white-space: pre-wrap; }
-    .breadcrumbs { font-size: 13px; margin-bottom: 12px; color: #8e8e93; }
-    .breadcrumbs a { color: #0066cc; text-decoration: none; }
-  </style>
+  <%# Pulls in the host app's compiled Tailwind build (app/assets/builds/tailwind.css).
+      The gem registers its own views as Tailwind sources via
+      app/assets/tailwind/escriba/engine.css — see README "Styling / Tailwind". %>
+  <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
 </head>
-<body>
-  <header>
-    <%= link_to "Escriba", translations_path %>
+<body class="h-full bg-gray-50 text-gray-900 antialiased">
+  <header class="bg-gray-900 text-white">
+    <div class="mx-auto max-w-5xl px-6 py-3 flex items-center gap-3">
+      <%= link_to translations_path, class: "flex items-center gap-2 font-semibold tracking-tight hover:text-gray-300" do %>
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-xs font-bold">E</span>
+        Escriba
+      <% end %>
+      <span class="text-gray-500 text-sm">Translations</span>
+    </div>
   </header>
-  <main>
-    <div class="banner">⚠️ Translation edits become effective on the next deploy.</div>
-    <% if notice %><div class="notice"><%= notice %></div><% end %>
+
+  <main class="mx-auto max-w-5xl px-6 py-8">
+    <div class="mb-6 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <span aria-hidden="true">⚠️</span>
+      <span>Translation edits become effective on the next deploy.</span>
+    </div>
+
+    <% if notice %>
+      <div class="mb-6 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"><%= notice %></div>
+    <% end %>
+    <% if alert %>
+      <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><%= alert %></div>
+    <% end %>
+
     <%= yield %>
   </main>
 </body>

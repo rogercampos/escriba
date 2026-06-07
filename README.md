@@ -215,10 +215,42 @@ end
 Hardcoded (not configurable): the hash is always SHA-256 truncated to 16 hex
 characters; the table is always `escriba_translations`.
 
+## Styling (Tailwind CSS)
+
+The admin UI is styled with [Tailwind CSS v4](https://tailwindcss.com). Escriba
+does **not** ship compiled CSS — it plugs into your app's existing Tailwind
+build. This keeps the gem's footprint tiny and lets the UI inherit your own
+Tailwind version. The assumption is that the host app uses
+[`tailwindcss-rails`](https://github.com/rails/tailwindcss-rails) `~> 4.0` (what
+you get from `rails new --css tailwind`). It is an implicit requirement of the
+admin UI, not of the `E18n.t` runtime — translations work with or without it.
+
+The gem ships a Tailwind entry point at
+`app/assets/tailwind/escriba/engine.css` that registers its own view templates
+as Tailwind [`@source`s](https://tailwindcss.com/docs/detecting-classes-in-source-files).
+`tailwindcss-rails`' (experimental) engine support detects it and auto-generates
+`app/assets/builds/tailwind/escriba.css` on the next build/watch. You opt in
+with a single line in your `app/assets/tailwind/application.css`:
+
+```css
+@import "tailwindcss";
+@import "../builds/tailwind/escriba";   /* <- add this */
+```
+
+That's the entire integration. The gem "subscribes" its own templates to your
+Tailwind build — so the utility classes the admin UI uses survive the
+production purge — and you never reference the gem's internal paths. The
+standalone admin layout pulls in the compiled stylesheet via
+`stylesheet_link_tag :app`, the Rails 8 default bundle.
+
+If your app doesn't use Tailwind (or uses a non-`tailwindcss-rails` toolchain),
+the admin UI still renders and functions — just unstyled. To style it, point a
+Tailwind `@source` at the installed escriba gem's `app/views` directory.
+
 ## Admin UI
 
 Mounted at whatever path you chose (the install generator suggests `/escriba`).
-Provides:
+Styled with Tailwind (see above). Provides:
 
 - A locale-tabbed index of all known strings, with a "show only missing" filter
   for non-source locales.
@@ -274,12 +306,13 @@ To run the dummy app:
 ```sh
 cd dummy
 bundle install
-bin/rails db:migrate
-bin/rails server
+bin/rails db:prepare   # migrate + seed (seeds es/it/fr demo translations)
+bin/dev                # runs the Rails server + Tailwind watch (Procfile.dev)
 ```
 
-Visit `http://localhost:3000` for the demo pages, or
-`http://localhost:3000/escriba` for the admin UI.
+`bin/dev` defaults to port 3001. Visit `http://localhost:3001` for the demo
+pages, or `http://localhost:3001/escriba` for the admin UI. (`bin/rails server`
+also works but won't rebuild Tailwind on change.)
 
 ## License
 
