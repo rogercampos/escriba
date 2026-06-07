@@ -11,12 +11,24 @@
 </head>
 <body class="h-full bg-gray-50 text-gray-900 antialiased">
   <header class="bg-gray-900 text-white">
-    <div class="mx-auto max-w-5xl px-6 py-3 flex items-center gap-3">
-      <%= link_to translations_path, class: "flex items-center gap-2 font-semibold tracking-tight hover:text-gray-300" do %>
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-xs font-bold">E</span>
-        Escriba
-      <% end %>
-      <span class="text-gray-500 text-sm">Translations</span>
+    <div class="mx-auto max-w-5xl px-6">
+      <div class="flex items-center gap-3 py-3">
+        <%= link_to dashboard_path, class: "flex items-center gap-2 font-semibold tracking-tight hover:text-gray-300" do %>
+          <span class="inline-flex h-6 w-6 items-center justify-center rounded bg-indigo-500 text-xs font-bold">E</span>
+          Escriba
+        <% end %>
+      </div>
+      <% nav = [["Dashboard", dashboard_path, %w[dashboard]],
+                ["Translations", translations_path, %w[translations]],
+                ["Issues", issues_path, %w[issues]],
+                ["Import / Export", import_export_path, %w[import_export]]] %>
+      <nav class="flex flex-wrap gap-1 -mb-px text-sm">
+        <% nav.each do |label, path, controllers| %>
+          <% active = controllers.include?(controller.controller_name) %>
+          <%= link_to label, path,
+            class: "border-b-2 px-3 py-2 font-medium transition #{active ? 'border-indigo-400 text-white' : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'}" %>
+        <% end %>
+      </nav>
     </div>
   </header>
 

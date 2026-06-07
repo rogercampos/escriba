@@ -250,18 +250,37 @@ Tailwind `@source` at the installed escriba gem's `app/views` directory.
 ## Admin UI
 
 Mounted at whatever path you chose (the install generator suggests `/escriba`).
-Styled with Tailwind (see above). Provides:
+Styled with Tailwind (see above). The pages:
 
-- A locale-tabbed index of all known strings, with a "show only missing" filter
-  for non-source locales.
-- A per-key view showing the source copy, the meaning, the interpolation
-  variables (for reference), and the value in every available locale.
-- An edit form per `(key, locale)` pair — singular gets a textarea, plural gets
-  one field per CLDR plural form. The source copy and meaning are shown as
-  read-only context.
+- **Dashboard** — per-locale completeness (translated / total, missing), the
+  most recently discovered strings, and the translations staged for the next
+  deploy.
+- **Translations** — a per-locale workspace: the list of known strings with
+  their values for the selected locale, a source-copy search, and `All /
+  Missing / Issues` filters (with counts). Each value carries lint badges.
+- **Per-key view** — the source copy, meaning, interpolation variables, and the
+  value (plus lint badges) in every available locale.
+- **Edit form** per `(key, locale)` pair — singular gets a textarea, plural one
+  field per CLDR plural form, with source copy/meaning as read-only context.
+  `Save & next missing` jumps straight to the next untranslated string in the
+  locale for fast burn-down.
+- **Issues** — quality problems with existing translations across all locales:
+  broken/unknown interpolations, missing required plural forms, and values
+  identical to the source (looks untranslated).
+- **Import / Export** — placeholder for bulk file workflows (not wired up yet).
 
 Edits do not invalidate running processes; the UI shows a banner explaining
 that changes go live on the next deploy.
+
+### Lint checks
+
+Translations are linted against the source string using only stored data
+(interpolation shape, plural flag, source copy) — see
+`Escriba::TranslationValidator`. It flags unknown interpolation variables
+(absent from the source), missing variables (singular only — the `one` plural
+form may legitimately drop `%{count}`), a missing required `other` plural form,
+and values identical to the source. It deliberately does not compute the full
+set of CLDR plural categories a locale requires.
 
 ## Not supported (by design, for now)
 

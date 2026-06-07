@@ -1,0 +1,58 @@
+<div class="mb-6 flex items-center gap-3">
+  <h1 class="text-2xl font-semibold tracking-tight">Import / Export</h1>
+  <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">Coming soon</span>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-2">
+  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200">
+    <h2 class="mb-1 text-lg font-semibold tracking-tight">Import</h2>
+    <p class="mb-4 text-sm text-gray-500">
+      Bulk-load translations from a file, matched to strings by source copy (or
+      by Escriba key for round-trips). A dry-run preview will show matches,
+      conflicts and unmatched rows before anything is written.
+    </p>
+
+    <fieldset disabled class="space-y-4 opacity-60">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-700">Locale</label>
+        <select class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300">
+          <% @locales.each do |locale| %><option><%= locale %></option><% end %>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-700">File <span class="font-normal text-gray-400">(CSV, XLIFF, JSON, gettext PO)</span></label>
+        <div class="flex items-center justify-center rounded-md border-2 border-dashed border-gray-300 px-6 py-8 text-sm text-gray-400">
+          Drop a file here
+        </div>
+      </div>
+      <button type="button" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm">Preview import</button>
+    </fieldset>
+  </section>
+
+  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-gray-200">
+    <h2 class="mb-1 text-lg font-semibold tracking-tight">Export</h2>
+    <p class="mb-4 text-sm text-gray-500">
+      Download translations to hand off to a translator or service — including
+      source copy, meaning and interpolation hints as context. Optionally limit
+      to missing entries for a given locale.
+    </p>
+
+    <fieldset disabled class="space-y-4 opacity-60">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-700">Locale</label>
+        <select class="block w-full rounded-md border-0 px-3 py-2 text-sm text-gray-900 ring-1 ring-inset ring-gray-300">
+          <option>All locales</option>
+          <% @locales.each do |locale| %><option><%= locale %></option><% end %>
+        </select>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" class="rounded border-gray-300"> Only missing entries
+      </label>
+      <button type="button" class="rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">Export</button>
+    </fieldset>
+  </section>
+</div>
+
+<p class="mt-6 text-sm text-gray-400">
+  This screen is a placeholder — no import or export is wired up yet.
+</p>

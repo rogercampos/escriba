@@ -59,6 +59,9 @@
               <% if @dev_row %><span class="text-gray-900"><%= render_source(@dev_row) %></span><% end %>
             <% elsif row && row.value.present? %>
               <span class="text-gray-900"><%= render_value(row) %></span>
+              <% unless locale_sym == dev_locale %>
+                <div class="mt-1"><%= render_issue_badges(translation_issues(@dev_row, row)) %></div>
+              <% end %>
             <% else %>
               <span class="italic text-gray-400">—</span>
             <% end %>

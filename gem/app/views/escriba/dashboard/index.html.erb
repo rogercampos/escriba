@@ -1,0 +1,83 @@
+<div class="mb-6 flex flex-wrap items-baseline justify-between gap-3">
+  <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+  <p class="text-sm text-gray-500">
+    <span class="font-medium text-gray-700"><%= @total %></span> strings discovered so far
+    <% if dev_locale_from_code? %>· source locale <code class="rounded bg-gray-100 px-1 font-mono text-gray-700"><%= dev_locale %></code> from code<% end %>
+  </p>
+</div>
+
+<section class="mb-8">
+  <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Locale completeness</h2>
+  <% if @locales.empty? %>
+    <div class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-8 text-center text-sm text-gray-500">
+      No translatable locales configured.
+    </div>
+  <% else %>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <% @locales.each do |locale| %>
+        <% s = @stats[locale]; pct = completeness_percent(s[:translated], @total) %>
+        <%= link_to translations_path(locale: locale), class: "block rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:ring-indigo-300" do %>
+          <div class="mb-2 flex items-baseline justify-between">
+            <span class="text-lg font-semibold uppercase"><%= locale %></span>
+            <span class="text-sm font-medium text-gray-500"><%= pct %>%</span>
+          </div>
+          <div class="mb-2 h-2 overflow-hidden rounded-full bg-gray-100">
+            <div class="h-full rounded-full <%= pct == 100 ? 'bg-green-500' : 'bg-indigo-500' %>" style="width: <%= pct %>%"></div>
+          </div>
+          <p class="text-xs text-gray-500">
+            <%= s[:translated] %> / <%= @total %> translated
+            <% if s[:missing].positive? %>· <span class="font-medium text-amber-600"><%= s[:missing] %> missing</span><% end %>
+          </p>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+</section>
+
+<div class="grid gap-6 lg:grid-cols-2">
+  <section>
+    <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Recent copies</h2>
+    <div class="rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+      <% if @recent_copies.empty? %>
+        <p class="px-4 py-6 text-center text-sm text-gray-500">Nothing yet.</p>
+      <% else %>
+        <ul class="divide-y divide-gray-100">
+          <% @recent_copies.each do |row| %>
+            <li class="px-4 py-3 text-sm">
+              <%= link_to truncate(source_text(row), length: 70), translation_path(row.key), class: "text-indigo-600 hover:text-indigo-500" %>
+              <% if row.meaning.present? %><span class="ml-1 text-xs text-gray-400">(<%= row.meaning %>)</span><% end %>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Needs attention</h2>
+    <div class="rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+      <% if @issue_total.zero? %>
+        <p class="px-4 py-6 text-center text-sm text-green-700">✓ No issues in existing translations.</p>
+      <% else %>
+        <%= link_to issues_path, class: "block px-4 py-3 hover:bg-gray-50" do %>
+          <div class="flex items-baseline justify-between">
+            <span class="text-sm font-medium text-gray-900"><%= pluralize(@issue_total, "issue") %></span>
+            <span class="text-sm text-indigo-600">Review all →</span>
+          </div>
+        <% end %>
+        <ul class="divide-y divide-gray-100 border-t border-gray-100">
+          <% @issue_counts.sort_by { |_, n| -n }.each do |code, count| %>
+            <% severity = Escriba::TranslationValidator::ERROR_CODES.include?(code) ? :error : :warning %>
+            <li class="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+              <span class="flex items-center gap-2">
+                <span class="inline-block h-1.5 w-1.5 rounded-full <%= severity == :error ? 'bg-red-500' : 'bg-amber-500' %>"></span>
+                <%= issue_label(code) %>
+              </span>
+              <span class="font-medium text-gray-500"><%= count %></span>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </div>
+  </section>
+</div>

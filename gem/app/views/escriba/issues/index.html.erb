@@ -1,0 +1,41 @@
+<div class="mb-2 flex flex-wrap items-baseline justify-between gap-3">
+  <h1 class="text-2xl font-semibold tracking-tight">Issues</h1>
+  <p class="text-sm text-gray-500"><%= pluralize(@issues.size, "issue") %> found</p>
+</div>
+<p class="mb-6 text-sm text-gray-500">
+  Quality problems with existing translations. Untranslated values and broken
+  interpolations show up here; entirely missing translations live under each
+  locale's <span class="font-medium text-gray-700">Missing</span> filter.
+  <% if @capped %><br>Scanned the first <%= @scanned %> strings.<% end %>
+</p>
+
+<% if @issues.empty? %>
+  <div class="rounded-lg border border-dashed border-green-300 bg-green-50 px-6 py-12 text-center text-sm text-green-700">
+    ✓ No issues found across the scanned strings.
+  </div>
+<% else %>
+  <div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50">
+        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <th class="px-4 py-3">Locale</th>
+          <th class="px-4 py-3">Source</th>
+          <th class="px-4 py-3">Problems</th>
+          <th class="px-4 py-3 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        <% @issues.each do |entry| %>
+          <tr class="align-top hover:bg-gray-50">
+            <td class="px-4 py-3 whitespace-nowrap font-medium uppercase text-gray-900"><%= entry[:locale] %></td>
+            <td class="px-4 py-3 text-gray-900"><%= truncate(source_text(entry[:dev]), length: 80) %></td>
+            <td class="px-4 py-3"><%= render_issue_badges(entry[:issues], skip_missing: false) %></td>
+            <td class="px-4 py-3 text-right whitespace-nowrap">
+              <%= link_to "Fix", edit_translation_path(entry[:dev].key, entry[:locale]), class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

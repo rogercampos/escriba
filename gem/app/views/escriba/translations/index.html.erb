@@ -10,20 +10,41 @@
   </nav>
 </div>
 
-<% if @locale != dev_locale %>
-  <p class="mb-4 text-sm">
-    <% if params[:missing].present? %>
-      <%= link_to "← Show all", translations_path(locale: @locale), class: "text-indigo-600 hover:text-indigo-500" %>
-    <% else %>
-      <%= link_to "Show only missing translations", translations_path(locale: @locale, missing: 1), class: "text-indigo-600 hover:text-indigo-500" %>
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <% if @locale != dev_locale %>
+    <div class="inline-flex rounded-md bg-gray-100 p-0.5 text-sm">
+      <% [["all", "All"], ["missing", "Missing"], ["issues", "Issues"]].each do |value, label| %>
+        <% on = @filter == value %>
+        <%= link_to translations_path(locale: @locale, filter: value, q: @query.presence),
+          class: "rounded px-3 py-1 font-medium transition #{on ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}" do %>
+          <%= label %>
+          <span class="ml-1 text-xs text-gray-400"><%= @counts[value.to_sym] %></span>
+        <% end %>
+      <% end %>
+    </div>
+  <% else %>
+    <span></span>
+  <% end %>
+
+  <%= form_with url: translations_path, method: :get, class: "flex items-center gap-2" do %>
+    <%= hidden_field_tag :locale, @locale %>
+    <%= hidden_field_tag :filter, @filter %>
+    <%= search_field_tag :q, @query, placeholder: "Search source copy…",
+      class: "w-56 rounded-md border-0 px-3 py-1.5 text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600" %>
+    <% if @query.present? %>
+      <%= link_to "Clear", translations_path(locale: @locale, filter: @filter), class: "text-sm text-gray-500 hover:text-gray-700" %>
     <% end %>
-  </p>
-<% end %>
+  <% end %>
+</div>
 
 <% if @dev_rows.empty? %>
   <div class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-12 text-center text-sm text-gray-500">
-    No translations recorded yet. Strings show up here after the host application runs
-    <code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700">E18n.t(...)</code> at least once.
+    <% if @query.present? || @filter != "all" %>
+      No strings match this filter.
+    <% else %>
+      No translations recorded yet. Strings show up here after the host application runs
+      <code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700">E18n.t(...)</code> at least once.
+    <% end %>
   </div>
 <% else %>
   <div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
@@ -44,6 +65,9 @@
             <td class="px-4 py-3">
               <% if target && target.value.present? %>
                 <span class="text-gray-900"><%= render_value(target) %></span>
+                <% if @locale != dev_locale %>
+                  <div class="mt-1"><%= render_issue_badges(translation_issues(dev, target)) %></div>
+                <% end %>
               <% else %>
                 <span class="italic text-gray-400">—</span>
               <% end %>
