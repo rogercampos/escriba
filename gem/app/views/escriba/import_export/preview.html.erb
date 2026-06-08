@@ -1,0 +1,88 @@
+<% order = { invalid: 0, overwrite: 1, create: 2, unmatched: 3, unchanged: 4 } %>
+<% ops = @operations.sort_by { |op| [order.fetch(op.status, 9), op.locale.to_s, op.source.to_s] } %>
+<% actionable = @summary[:create].to_i + @summary[:overwrite].to_i %>
+
+<nav class="mb-4 flex items-center gap-1 text-sm text-zinc-500">
+  <%= link_to "Import / Export", import_export_path, class: "font-medium text-blue-600 hover:text-blue-500" %>
+  <span aria-hidden="true">›</span>
+  <span>Preview import</span>
+</nav>
+
+<h1 class="mb-2 text-2xl font-semibold tracking-tight">Preview import</h1>
+
+<p class="mb-4 text-sm text-zinc-500">
+  Locales detected in the file:
+  <% @detected_locales.each do |locale| %><span class="ml-1 rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs text-zinc-700"><%= locale %></span><% end %>
+</p>
+
+<div class="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600">
+  <span><span class="font-semibold text-green-700"><%= @summary[:create].to_i %></span> to create</span>
+  <span><span class="font-semibold text-amber-700"><%= @summary[:overwrite].to_i %></span> to overwrite</span>
+  <span><span class="font-semibold text-zinc-500"><%= @summary[:unchanged].to_i %></span> unchanged</span>
+  <span><span class="font-semibold text-red-700"><%= @summary[:invalid].to_i %></span> invalid</span>
+  <span><span class="font-semibold text-red-700"><%= @summary[:unmatched].to_i %></span> unmatched</span>
+</div>
+
+<% if @summary[:invalid].to_i.positive? %>
+  <div class="mb-6 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-inset ring-red-600/10">
+    <%= @summary[:invalid] %> <%= "row".pluralize(@summary[:invalid]) %> failed validation (e.g. broken interpolations) and will <strong>not</strong> be imported. Fix them in the file and re-upload.
+  </div>
+<% end %>
+
+<% if ops.empty? %>
+  <p class="rounded-md bg-zinc-100 px-4 py-3 text-sm text-zinc-600">The file had no rows to reconcile.</p>
+<% else %>
+  <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+    <div class="inline-block min-w-full px-4 py-2 align-middle sm:px-6 lg:px-8">
+      <table class="min-w-full divide-y divide-zinc-950/5 text-sm">
+        <thead>
+          <tr class="text-left font-semibold text-zinc-900">
+            <th scope="col" class="py-3 pr-3 pl-0">Source</th>
+            <th scope="col" class="px-3 py-3 whitespace-nowrap">Locale</th>
+            <th scope="col" class="px-3 py-3 whitespace-nowrap">Status</th>
+            <th scope="col" class="px-3 py-3">Current</th>
+            <th scope="col" class="py-3 pr-0 pl-3">New</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-950/5">
+          <% ops.each do |op| %>
+            <tr class="align-top hover:bg-zinc-50">
+              <td class="max-w-xs py-3 pr-3 pl-0 text-zinc-900">
+                <% if op.status == :unmatched %>
+                  <%= op.source.presence || content_tag(:span, "—", class: "text-zinc-400 italic") %>
+                  <% if op.key.present? %><div class="font-mono text-xs text-zinc-400"><%= op.key %></div><% end %>
+                <% elsif (link_key = op.key).present? %>
+                  <%= link_to truncate(op.source.to_s, length: 90), translation_path(link_key), class: "text-blue-600 hover:text-blue-500" %>
+                <% end %>
+              </td>
+              <td class="px-3 py-3 font-mono text-xs whitespace-nowrap text-zinc-500"><%= op.locale %></td>
+              <td class="px-3 py-3 whitespace-nowrap"><%= import_status_badge(op.status) %></td>
+              <td class="px-3 py-3 text-zinc-600"><%= import_value_text(op.old_value, plural: op.plural) %></td>
+              <td class="py-3 pr-0 pl-3 text-zinc-900">
+                <% if op.status == :unmatched %>
+                  <span class="text-zinc-400 italic">—</span>
+                <% else %>
+                  <%= import_value_text(op.new_value, plural: op.plural) %>
+                  <% if op.issues.present? %>
+                    <div class="mt-1"><%= render_issue_badges(op.issues) %></div>
+                  <% end %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% end %>
+
+<%= form_with url: import_export_apply_path, method: :post, data: { turbo: false },
+      class: "mt-6 flex flex-wrap items-center gap-x-3 gap-y-2" do %>
+  <textarea name="csv" class="hidden"><%= @csv %></textarea>
+  <button type="submit" <%= "disabled" if actionable.zero? %>
+    class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
+    <%= actionable.zero? ? "Nothing to apply" : "Apply #{actionable} #{'change'.pluralize(actionable)}" %>
+  </button>
+  <%= link_to "Cancel", import_export_path, class: "text-sm font-medium text-zinc-500 hover:text-zinc-700" %>
+  <span class="ml-auto text-xs text-zinc-400">Goes live on the next deploy</span>
+<% end %>

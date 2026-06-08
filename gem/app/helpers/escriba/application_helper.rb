@@ -56,6 +56,34 @@ module Escriba
       ((translated.to_f / total) * 100).round
     end
 
+    # Plain-text rendering of an import operation value (a String, a plural Hash,
+    # or nil/blank). Used by the import preview's "current"/"new" columns.
+    def import_value_text(value, plural:)
+      blank = value.nil? ||
+        (value.respond_to?(:empty?) && value.empty?) ||
+        value.to_s.strip.empty?
+      return content_tag(:span, "—", class: "text-zinc-400 italic") if blank
+
+      if plural && value.is_a?(Hash)
+        safe_join(value.map { |k, v| content_tag(:div, "#{k}: #{v}") })
+      else
+        value.to_s
+      end
+    end
+
+    IMPORT_STATUS_CLASSES = {
+      create: "bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10",
+      overwrite: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/10",
+      unchanged: "bg-zinc-100 text-zinc-500 ring-1 ring-inset ring-zinc-600/10",
+      invalid: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10",
+      unmatched: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/10",
+    }.freeze
+
+    def import_status_badge(status)
+      content_tag(:span, status,
+        class: "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium #{IMPORT_STATUS_CLASSES[status]}")
+    end
+
     private
 
     def render_value_hash_or_string(value, plural:)
