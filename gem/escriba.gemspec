@@ -34,6 +34,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "concurrent-ruby", "~> 1.0"
   spec.add_dependency "csv", ">= 3.0" # no longer a default gem on Ruby 3.4+
   spec.add_dependency "i18n", ">= 1.6"
+  spec.add_dependency "json_schemer", ">= 2.0" # validates LLM-produced translation JSON
   spec.add_dependency "activerecord", ">= 7.0"
   spec.add_dependency "railties", ">= 7.0"
 

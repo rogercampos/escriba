@@ -78,7 +78,8 @@
 
 <%= form_with url: import_export_apply_path, method: :post, data: { turbo: false },
       class: "mt-6 flex flex-wrap items-center gap-x-3 gap-y-2" do %>
-  <textarea name="csv" class="hidden"><%= @csv %></textarea>
+  <input type="hidden" name="format" value="<%= @format %>">
+  <textarea name="payload" class="hidden"><%= @payload %></textarea>
   <button type="submit" <%= "disabled" if actionable.zero? %>
     class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
     <%= actionable.zero? ? "Nothing to apply" : "Apply #{actionable} #{'change'.pluralize(actionable)}" %>

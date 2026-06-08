@@ -1,0 +1,52 @@
+<nav class="mb-4 flex items-center gap-1 text-sm text-zinc-500">
+  <%= link_to "Import / Export", import_export_path, class: "font-medium text-blue-600 hover:text-blue-500" %>
+  <span aria-hidden="true">›</span>
+  <span>Prompt for <span class="font-medium text-zinc-700"><%= @locale %></span></span>
+</nav>
+
+<div class="mb-2 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold tracking-tight">Translate <span class="text-blue-600"><%= @locale %></span> with AI</h1>
+  <span class="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600"><%= pluralize(@rows.size, "string") %></span>
+</div>
+
+<ol class="mb-4 max-w-prose list-inside list-decimal text-sm text-zinc-500">
+  <li>Copy the prompt below into ChatGPT, Claude or any LLM.</li>
+  <li>Copy its JSON reply.</li>
+  <li>Paste it back into <strong>Paste AI translations</strong> on the <%= link_to "Import / Export", import_export_path, class: "text-blue-600 hover:text-blue-500" %> screen.</li>
+</ol>
+
+<div class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5">
+  <div class="mb-3 flex items-center justify-between gap-3">
+    <h2 class="font-semibold tracking-tight">Prompt</h2>
+    <button type="button" id="escriba-copy-prompt"
+      class="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+      Copy to clipboard
+    </button>
+  </div>
+  <textarea id="escriba-prompt" readonly rows="20" spellcheck="false"
+    class="block w-full rounded-md border-0 bg-zinc-50 px-3 py-2 font-mono text-xs whitespace-pre text-zinc-800 ring-1 ring-inset ring-zinc-200 focus:ring-2 focus:ring-inset focus:ring-blue-600"><%= @prompt %></textarea>
+  <p class="mt-2 text-xs text-zinc-400">Can't copy with the button? Click in the box, select all (⌘/Ctrl+A) and copy.</p>
+</div>
+
+<%= javascript_tag nonce: true do %>
+  (function () {
+    var btn = document.getElementById("escriba-copy-prompt");
+    var ta = document.getElementById("escriba-prompt");
+    if (!btn || !ta) return;
+    btn.addEventListener("click", function () {
+      ta.focus();
+      ta.select();
+      var done = function () {
+        var label = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(function () { btn.textContent = label; }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(done, function () { document.execCommand("copy"); done(); });
+      } else {
+        document.execCommand("copy");
+        done();
+      }
+    });
+  })();
+<% end %>

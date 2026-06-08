@@ -2,9 +2,72 @@
   <h1 class="text-2xl font-semibold tracking-tight">Import / Export</h1>
 </div>
 
+<h2 class="mb-1 text-lg font-semibold tracking-tight">Translate with AI</h2>
+<p class="mb-4 max-w-prose text-sm text-pretty text-zinc-500">
+  Generate a ready-to-paste prompt for ChatGPT, Claude or any LLM, then paste its
+  reply back. Placeholders, plural rules and a strict output schema are baked into
+  the prompt, and every value is validated before it's written.
+</p>
+
+<div class="mb-8 grid gap-6 lg:grid-cols-2">
+  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5">
+    <h3 class="mb-1 font-semibold tracking-tight">1. Generate prompt</h3>
+    <p class="mb-4 text-sm text-zinc-500">Pick a locale; we bundle its strings and the rules into one prompt.</p>
+
+    <%= form_with url: import_export_prompt_path, method: :post, data: { turbo: false }, class: "space-y-4" do %>
+      <div>
+        <label for="prompt_locale" class="mb-1 block text-sm font-medium text-zinc-700">Locale</label>
+        <div class="grid grid-cols-[1fr_--spacing(8)]">
+          <select id="prompt_locale" name="locale" class="col-span-full row-start-1 appearance-none rounded-md border-0 py-2 pr-8 pl-3 text-sm text-zinc-900 ring-1 ring-inset ring-zinc-300">
+            <% @locales.each do |locale| %><option><%= locale %></option><% end %>
+          </select>
+          <svg viewBox="0 0 8 5" width="8" height="5" fill="none" class="pointer-events-none col-start-2 row-start-1 place-self-center text-zinc-500">
+            <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+          </svg>
+        </div>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-zinc-700">
+        <span class="inline-grid size-4 grid-cols-1">
+          <input type="checkbox" name="only_missing" value="1" checked class="peer col-start-1 row-start-1 size-4 appearance-none rounded-sm border border-zinc-300 bg-white checked:border-blue-600 checked:bg-blue-600" />
+          <svg viewBox="0 0 14 14" fill="none" class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white opacity-0 peer-checked:opacity-100">
+            <path d="M3 8 6 11l5-7.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        Only missing entries
+      </label>
+      <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">Generate prompt</button>
+    <% end %>
+  </section>
+
+  <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5">
+    <h3 class="mb-1 font-semibold tracking-tight">2. Paste AI translations</h3>
+    <p class="mb-4 text-sm text-zinc-500">Paste the LLM's JSON reply (code fences and stray prose are fine).</p>
+
+    <% if @json_errors.present? %>
+      <div class="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-inset ring-red-600/10">
+        <p class="mb-1 font-medium">The pasted output didn't match the schema:</p>
+        <ul class="list-inside list-disc space-y-0.5">
+          <% @json_errors.each do |error| %><li><%= error %></li><% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <%= form_with url: import_export_preview_path, method: :post, data: { turbo: false }, class: "space-y-4" do %>
+      <textarea name="json" rows="6" placeholder='[{"key": "…", "locale": "es", "translation": "…"}]'
+        class="block w-full rounded-md border-0 px-3 py-2 font-mono text-xs text-zinc-900 ring-1 ring-inset ring-zinc-300 focus:ring-2 focus:ring-inset focus:ring-blue-600"><%= @json_input %></textarea>
+      <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">Preview import</button>
+    <% end %>
+  </section>
+</div>
+
+<h2 class="mb-1 text-lg font-semibold tracking-tight">Files (CSV)</h2>
+<p class="mb-4 max-w-prose text-sm text-pretty text-zinc-500">
+  For handing off to a human translator or a translation service.
+</p>
+
 <div class="grid gap-6 lg:grid-cols-2">
   <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5">
-    <h2 class="mb-1 text-lg font-semibold tracking-tight">Import</h2>
+    <h3 class="mb-1 font-semibold tracking-tight">Import</h3>
     <p class="mb-4 max-w-prose text-sm text-pretty text-zinc-500">
       Bulk-load translations from a CSV, matched to strings by Escriba key (or by
       source copy). Target locales are detected from the file's columns, so one
@@ -19,12 +82,12 @@
         <input type="file" id="import_file" name="file" accept=".csv,text/csv"
           class="block w-full rounded-md border-2 border-dashed border-zinc-950/15 px-3 py-3 text-sm text-zinc-600 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700">
       </div>
-      <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">Preview import</button>
+      <button type="submit" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-zinc-700 shadow-sm ring-1 ring-inset ring-zinc-300 hover:bg-zinc-50">Preview import</button>
     <% end %>
   </section>
 
   <section class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5">
-    <h2 class="mb-1 text-lg font-semibold tracking-tight">Export</h2>
+    <h3 class="mb-1 font-semibold tracking-tight">Export</h3>
     <p class="mb-4 max-w-prose text-sm text-pretty text-zinc-500">
       Download translations to hand off to a translator or service — including
       source copy, meaning and key as context. Optionally limit to missing
@@ -47,7 +110,10 @@
       </div>
       <label class="flex items-center gap-2 text-sm text-zinc-700">
         <span class="inline-grid size-4 grid-cols-1">
-          <input type="checkbox" name="only_missing" value="1" class="col-start-1 row-start-1 size-4 appearance-none rounded-sm border border-zinc-300 bg-white checked:border-blue-600 checked:bg-blue-600" />
+          <input type="checkbox" name="only_missing" value="1" class="peer col-start-1 row-start-1 size-4 appearance-none rounded-sm border border-zinc-300 bg-white checked:border-blue-600 checked:bg-blue-600" />
+          <svg viewBox="0 0 14 14" fill="none" class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white opacity-0 peer-checked:opacity-100">
+            <path d="M3 8 6 11l5-7.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </span>
         Only missing entries
       </label>

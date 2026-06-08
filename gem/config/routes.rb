@@ -6,6 +6,7 @@ Escriba::Engine.routes.draw do
 
   get  "import-export",         to: "import_export#index",   as: :import_export
   get  "import-export/export",  to: "import_export#export",  as: :import_export_export
+  post "import-export/prompt",  to: "import_export#prompt",  as: :import_export_prompt
   post "import-export/preview", to: "import_export#preview", as: :import_export_preview
   post "import-export/apply",   to: "import_export#apply",   as: :import_export_apply
 
