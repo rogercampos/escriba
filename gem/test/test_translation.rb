@@ -66,4 +66,27 @@ class TestTranslation < Minitest::Test
 
     assert_equal ["es"], Escriba::Translation.with_issues.pluck(:locale)
   end
+
+  def test_last_published_at_defaults_to_process_boot
+    assert_equal Escriba.booted_at, Escriba.last_published_at
+  end
+
+  def test_rows_saved_after_the_last_publish_are_pending
+    row = create_row(locale: :es, value: "Guardar")
+
+    assert row.pending_publish?
+    assert_includes Escriba::Translation.pending_publish, row
+  end
+
+  def test_last_published_at_accepts_a_time_or_a_callable
+    row = create_row(locale: :es, value: "Guardar")
+
+    Escriba.config.last_published_at = Time.now + 60
+    refute row.pending_publish?
+    assert_empty Escriba::Translation.pending_publish.to_a
+
+    Escriba.config.last_published_at = -> { Time.now - 60 }
+    assert row.pending_publish?
+    assert_includes Escriba::Translation.pending_publish, row
+  end
 end

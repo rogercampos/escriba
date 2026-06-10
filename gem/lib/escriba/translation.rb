@@ -21,6 +21,13 @@ module Escriba
     scope :for_locale, ->(locale) { where(locale: locale.to_s) }
     scope :for_key,    ->(key)    { where(key: key) }
     scope :with_issues, -> { where.not(issues: nil) }
+    scope :pending_publish, -> { where("updated_at > ?", Escriba.last_published_at) }
+
+    # Edited after the last publish — running processes may still serve the
+    # previous value from their caches.
+    def pending_publish?
+      updated_at.present? && updated_at > Escriba.last_published_at
+    end
 
     # The cached lint issues as TranslationValidator::Issue structs (the shape
     # the views expect). Never includes :missing — a missing translation is

@@ -72,6 +72,7 @@
               <td class="px-3 py-3">
                 <% if target && target.value.present? %>
                   <span class="text-zinc-900"><%= render_value(target) %></span>
+                  <%= pending_publish_badge(target) %>
                   <% if @locale != dev_locale %>
                     <div class="mt-1"><%= render_issue_badges(target.issue_list) %></div>
                   <% end %>

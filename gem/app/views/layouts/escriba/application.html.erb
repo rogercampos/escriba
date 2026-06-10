@@ -40,7 +40,10 @@
   </main>
 
   <footer class="mx-auto w-full max-w-5xl px-4 pb-8 sm:px-6 lg:px-8">
-    <p class="text-xs text-zinc-400">Translations are cached per process — edits become effective on the next deploy.</p>
+    <p class="text-xs text-zinc-400">
+      Translations are cached per process — edits go live on the next deploy.
+      Last published <%= time_ago_in_words(Escriba.last_published_at) %> ago.
+    </p>
   </footer>
 </body>
 </html>

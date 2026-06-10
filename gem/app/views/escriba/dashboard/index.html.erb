@@ -3,6 +3,9 @@
   <p class="text-sm text-zinc-500">
     <span class="font-medium text-zinc-700 tabular-nums"><%= @total %></span> strings discovered so far
     <% if dev_locale_from_code? %>· source locale <code class="rounded bg-zinc-100 px-1 font-mono text-zinc-700"><%= dev_locale %></code> from code<% end %>
+    <% if @pending_count.positive? %>
+      · <span class="font-medium text-blue-600 tabular-nums"><%= pluralize(@pending_count, "edit") %></span> pending deploy
+    <% end %>
   </p>
 </div>
 

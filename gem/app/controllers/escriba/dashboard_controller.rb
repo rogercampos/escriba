@@ -33,6 +33,13 @@ module Escriba
           Array(list).each { |issue| @issue_counts[issue["code"].to_sym] += 1 }
         end
       @issue_total = @issue_counts.values.sum
+
+      # Edits newer than the last publish (deploy/restart) — running processes
+      # may still serve the previous value for these. Dev-locale rows don't
+      # count when the dev locale is served from source code.
+      pending = Escriba::Translation.pending_publish
+      pending = pending.where.not(locale: dev_locale.to_s) if dev_locale_from_code?
+      @pending_count = pending.count
     end
   end
 end

@@ -21,9 +21,29 @@ if defined?(Rails::Engine)
 end
 
 module Escriba
+  # When this process loaded the library, i.e. when its per-process
+  # translation cache started filling.
+  BOOTED_AT = Time.now.utc
+
   class << self
     def config
       @config ||= Configuration.new
+    end
+
+    def booted_at
+      BOOTED_AT
+    end
+
+    # The last time edits were published. Translations are cached per process,
+    # so the real publish gate is a restart of the serving processes — under
+    # Kamal (and most deploy tools) that's the last deploy, which is why this
+    # process' boot time is the default. Rows updated after this moment may
+    # still be served stale. config.last_published_at (a Time or a callable)
+    # overrides it for teams that record exact deploy times.
+    def last_published_at
+      configured = config.last_published_at
+      value = configured.respond_to?(:call) ? configured.call : configured
+      value || booted_at
     end
 
     def configure

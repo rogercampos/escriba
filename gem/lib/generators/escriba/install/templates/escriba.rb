@@ -19,4 +19,12 @@ Escriba.configure do |config|
 
   # Locales the admin UI offers. Defaults to I18n.available_locales.
   # config.available_locales = %i[en es]
+
+  # When edits were last published. The admin UI flags rows updated after this
+  # as "pending deploy". Translations are cached per process, so the publish
+  # gate is really a restart of the serving processes — the default (this
+  # process' boot time) matches that under Kamal and most deploy tools. Set a
+  # Time or a callable for an exact fleet-wide value, e.g. recorded by a Kamal
+  # post-deploy hook (KAMAL_RECORDED_AT) or a build stamp baked into the image.
+  # config.last_published_at = -> { Time.parse(File.read("/etc/deploy-stamp")) }
 end

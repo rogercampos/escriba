@@ -49,6 +49,7 @@
                 <% if @dev_row %><span class="text-zinc-900"><%= render_source(@dev_row) %></span><% end %>
               <% elsif row && row.value.present? %>
                 <span class="text-zinc-900"><%= render_value(row) %></span>
+                <%= pending_publish_badge(row) %>
                 <% unless locale_sym == dev_locale %>
                   <div class="mt-1"><%= render_issue_badges(translation_issues(@dev_row, row)) %></div>
                 <% end %>

@@ -10,6 +10,17 @@ module Escriba
       render_value_hash_or_string(row.value, plural: row.plural)
     end
 
+    # Badge for rows edited after the last publish. Skipped for dev-locale
+    # rows when the dev locale is served from source code (those are always
+    # live — the DB row is just a record).
+    def pending_publish_badge(row)
+      return unless row&.pending_publish?
+      return if dev_locale_from_code? && row.locale.to_s == dev_locale.to_s
+
+      content_tag :span, "pending deploy",
+        class: "inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-blue-600/10 ring-inset"
+    end
+
     # Pagy keeps #series protected; the pagination partial needs it to render
     # the page links.
     def pagination_series(pagy)
