@@ -30,12 +30,7 @@ module Escriba
     # Plain-text (no markup) rendering of a source string, for compact/truncated
     # contexts like the dashboard lists and the Issues table.
     def source_text(row)
-      value = row.source_copy
-      if row.plural && value.is_a?(Hash)
-        value.map { |k, v| "#{k}: #{v}" }.join(" · ")
-      else
-        value.to_s
-      end
+      Escriba.source_text(row)
     end
 
     SEVERITY_CLASSES = {

@@ -8,6 +8,7 @@ PATH
       i18n (>= 1.6)
       json_schemer (>= 2.0)
       pagy (~> 43.0)
+      prism (>= 1.0)
       railties (>= 7.0)
 
 GEM

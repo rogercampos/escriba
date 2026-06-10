@@ -2,7 +2,7 @@
 
 module Escriba
   class Configuration
-    attr_accessor :dev_locale, :authenticate_with, :dev_locale_from_code, :last_published_at
+    attr_accessor :dev_locale, :authenticate_with, :dev_locale_from_code
     attr_writer :available_locales
 
     def initialize
@@ -10,7 +10,6 @@ module Escriba
       @authenticate_with = nil
       @dev_locale_from_code = false
       @available_locales = nil
-      @last_published_at = nil
     end
 
     def available_locales

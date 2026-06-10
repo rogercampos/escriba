@@ -21,12 +21,12 @@ module Escriba
     scope :for_locale, ->(locale) { where(locale: locale.to_s) }
     scope :for_key,    ->(key)    { where(key: key) }
     scope :with_issues, -> { where.not(issues: nil) }
-    scope :pending_publish, -> { where("updated_at > ?", Escriba.last_published_at) }
+    scope :pending_publish, -> { where("updated_at > ?", Escriba.booted_at) }
 
-    # Edited after the last publish — running processes may still serve the
-    # previous value from their caches.
+    # Edited after the last publish (the process boot) — running processes may
+    # still serve the previous value from their caches.
     def pending_publish?
-      updated_at.present? && updated_at > Escriba.last_published_at
+      updated_at.present? && updated_at > Escriba.booted_at
     end
 
     # The cached lint issues as TranslationValidator::Issue structs (the shape
@@ -39,19 +39,32 @@ module Escriba
     end
 
     def self.upsert_dev_locale(key, dev_locale, source)
+      seed_dev_locale(dev_locale, [[key, source]])
+    end
+
+    # Insert-only seed of dev-locale rows in one statement; existing rows are
+    # left untouched. `entries` is an array of [key, source] pairs, where
+    # source is the {value:, meaning:, interpolation_names:, plural:} shape
+    # the backend builds at runtime.
+    def self.seed_dev_locale(dev_locale, entries)
+      return if entries.empty?
+
       now = Time.current
-      attrs = {
-        key: key,
-        locale: dev_locale.to_s,
-        value: source[:value].is_a?(Hash) ? source[:value].transform_keys(&:to_s) : source[:value],
-        source_copy: source[:value].is_a?(Hash) ? source[:value].transform_keys(&:to_s) : source[:value],
-        meaning: source[:meaning],
-        interpolation_names: source[:interpolation_names],
-        plural: source[:plural],
-        created_at: now,
-        updated_at: now,
-      }
-      insert_all([attrs], unique_by: %i[key locale])
+      rows = entries.map do |key, source|
+        value = source[:value].is_a?(Hash) ? source[:value].transform_keys(&:to_s) : source[:value]
+        {
+          key: key,
+          locale: dev_locale.to_s,
+          value: value,
+          source_copy: value,
+          meaning: source[:meaning],
+          interpolation_names: source[:interpolation_names],
+          plural: source[:plural],
+          created_at: now,
+          updated_at: now,
+        }
+      end
+      insert_all(rows, unique_by: %i[key locale])
     end
 
     private

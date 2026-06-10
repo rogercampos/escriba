@@ -36,6 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "i18n", ">= 1.6"
   spec.add_dependency "json_schemer", ">= 2.0" # validates LLM-produced translation JSON
   spec.add_dependency "pagy", "~> 43.0" # admin UI relies on the v43 API (Pagy::Method)
+  spec.add_dependency "prism", ">= 1.0" # static extraction of E18n.t calls
   spec.add_dependency "activerecord", ">= 7.0"
   spec.add_dependency "railties", ">= 7.0"
 

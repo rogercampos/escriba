@@ -12,7 +12,7 @@ module Escriba
   module TranslationSchema
     extend self
 
-    PLURAL_FORMS = %w[zero one two few many other].freeze
+    PLURAL_FORMS = KeyDeriver::PLURAL_FORM_KEYS.map(&:to_s).freeze
 
     # locales - the locale codes allowed in the `locale` field (an Array).
     def for(locales:)

@@ -374,4 +374,98 @@ class TestE18n < Minitest::Test
     I18n.backend.store_translations(:en, hello: "world")
     assert_equal "world", I18n.t("hello")
   end
+
+  # ---------------- YAML fallback (dumped escriba.<locale>.yml files) ----------------
+
+  def store_yml(locale, hash_key, value)
+    I18n.backend.store_translations(locale, escriba: { hash_key => value })
+  end
+
+  def test_prod_non_dev_locale_falls_back_to_yml_when_db_has_no_value
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "Guardar")
+
+    I18n.locale = :es
+    assert_equal "Guardar", E18n.t("Save")
+  ensure
+    I18n.backend.reload!
+  end
+
+  def test_prod_db_translation_wins_over_yml
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+
+    hash_key = Escriba::KeyDeriver.for_singular("Save")
+    Escriba::Translation.create!(key: hash_key, locale: "en", value: "Save", source_copy: "Save")
+    Escriba::Translation.create!(key: hash_key, locale: "es", value: "Guardar (DB)", source_copy: "Save")
+    store_yml(:es, hash_key, "Guardar (YML)")
+
+    I18n.locale = :es
+    assert_equal "Guardar (DB)", E18n.t("Save")
+  ensure
+    I18n.backend.reload!
+  end
+
+  def test_prod_blank_yml_skeleton_entries_count_as_missing
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "")
+
+    I18n.locale = :es
+    # Falls back through the chain to the seeded dev row, not to "".
+    assert_equal "Save", E18n.t("Save")
+  ensure
+    I18n.backend.reload!
+  end
+
+  def test_prod_whitespace_only_yml_entries_count_as_missing
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "  ")
+
+    I18n.locale = :es
+    assert_equal "Save", E18n.t("Save")
+  ensure
+    I18n.backend.reload!
+  end
+
+  def test_prod_non_string_yml_scalars_count_as_missing
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    # A hand-edited file with unquoted scalars: YAML types them as Integer/true.
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), 123)
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Enabled"), true)
+
+    I18n.locale = :es
+    assert_equal "Save", E18n.t("Save")
+    assert_equal "Enabled", E18n.t("Enabled")
+  ensure
+    I18n.backend.reload!
+  end
+
+  def test_prod_plural_yml_fallback_pluralizes_and_skips_blank_forms
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+
+    hash_key = Escriba::KeyDeriver.for_plural(one: "1 file", other: "%{count} files")
+    store_yml(:es, hash_key, { one: "", other: "%{count} fitxers" })
+
+    I18n.locale = :es
+    assert_equal "2 fitxers", E18n.t(one: "1 file", other: "%{count} files", count: 2)
+  ensure
+    I18n.backend.reload!
+  end
+
+  def test_prod_yml_fallback_is_cached
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "Guardar")
+
+    I18n.locale = :es
+    E18n.t("Save") # primes the cache from the YAML store
+
+    I18n.backend.reload! # wipes the YAML store — the cache should still serve it
+    assert_equal "Guardar", E18n.t("Save")
+  end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_120000) do
   create_table "escriba_translations", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "interpolation_names"
@@ -25,5 +25,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_000000) do
     t.index ["key", "locale"], name: "index_escriba_translations_on_key_and_locale", unique: true
     t.index ["key"], name: "index_escriba_translations_on_key"
     t.index ["locale"], name: "index_escriba_translations_issue_rows", where: "issues IS NOT NULL"
+    t.index ["updated_at"], name: "index_escriba_translations_on_updated_at"
   end
 end

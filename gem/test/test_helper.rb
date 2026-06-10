@@ -50,6 +50,7 @@ ActiveRecord::Schema.define do
   add_index :escriba_translations, :key
   add_index :escriba_translations, :locale, where: "issues IS NOT NULL",
     name: "index_escriba_translations_issue_rows"
+  add_index :escriba_translations, :updated_at
 end
 
 require "escriba"

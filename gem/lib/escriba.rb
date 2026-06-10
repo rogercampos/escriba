@@ -3,6 +3,7 @@
 require_relative "escriba/version"
 require_relative "escriba/errors"
 require_relative "escriba/configuration"
+require_relative "escriba/yml_format"
 require_relative "escriba/key_deriver"
 require_relative "escriba/translation_validator"
 require_relative "escriba/dev_index"
@@ -12,6 +13,9 @@ require_relative "escriba/translation_exporter"
 require_relative "escriba/translation_importer"
 require_relative "escriba/translation_prompt"
 require_relative "escriba/translation_json_importer"
+require_relative "escriba/yml_dumper"
+require_relative "escriba/yml_importer"
+require_relative "escriba/source_extractor"
 require_relative "escriba/cache"
 require_relative "escriba/backend"
 require_relative "escriba/e18n"
@@ -22,7 +26,10 @@ end
 
 module Escriba
   # When this process loaded the library, i.e. when its per-process
-  # translation cache started filling.
+  # translation cache started filling. Translations are cached per process, so
+  # this is also when edits were last published from this process' point of
+  # view — under Kamal (and most deploy tools) that's the last deploy. Rows
+  # updated after this moment may still be served stale.
   BOOTED_AT = Time.now.utc
 
   class << self
@@ -34,16 +41,16 @@ module Escriba
       BOOTED_AT
     end
 
-    # The last time edits were published. Translations are cached per process,
-    # so the real publish gate is a restart of the serving processes — under
-    # Kamal (and most deploy tools) that's the last deploy, which is why this
-    # process' boot time is the default. Rows updated after this moment may
-    # still be served stale. config.last_published_at (a Time or a callable)
-    # overrides it for teams that record exact deploy times.
-    def last_published_at
-      configured = config.last_published_at
-      value = configured.respond_to?(:call) ? configured.call : configured
-      value || booted_at
+    # Plain-text rendering of an entry's source copy (plural forms joined on
+    # one line). Shared by the admin UI, the reconciler and the YAML dumper.
+    # `entry` is anything responding to #source_copy and #plural.
+    def source_text(entry)
+      source = entry.source_copy
+      if entry.plural && source.is_a?(Hash)
+        source.map { |form, copy| "#{form}: #{copy}" }.join(" · ")
+      else
+        source.to_s
+      end
     end
 
     def configure

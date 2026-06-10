@@ -19,8 +19,12 @@ module Escriba
     Operation = Struct.new(:key, :locale, :source, :status, :old_value, :new_value, :plural, :issues, :dev,
       keyword_init: true)
 
-    def initialize(proposals)
+    # overwrite: false marks proposals that would replace an existing value as
+    # :kept instead (nothing written) — used by the YAML import, where the
+    # database always wins over file contents.
+    def initialize(proposals, overwrite: true)
       @proposals = proposals
+      @overwrite = overwrite
     end
 
     def operations
@@ -100,8 +104,10 @@ module Escriba
           :create
         elsif values_equal?(old_value, new_value, dev.plural)
           :unchanged
-        else
+        elsif @overwrite
           :overwrite
+        else
+          :kept
         end
 
       issues = []
@@ -114,13 +120,18 @@ module Escriba
         old_value: old_value, new_value: new_value, plural: dev.plural, issues: issues, dev: dev)
     end
 
-    # Coerce a proposed value to the shape the dev string expects. A plural Hash
-    # is cleaned of blank forms; a non-String value for a singular string is
-    # dropped (never written as bad data). A String for a plural string is kept
-    # so the linter can flag the missing plural forms.
+    # Coerce a proposed value to the shape the dev string expects. A plural
+    # Hash is cleaned of blank and non-String forms (a hand-edited YAML file
+    # can carry an unquoted `123` or `yes`); a non-String value for a singular
+    # string is dropped (never written as bad data). A String for a plural
+    # string is kept so the linter can flag the missing plural forms.
     def normalize_new_value(value, plural)
       if plural
-        value.is_a?(Hash) ? value.transform_keys(&:to_s).reject { |_, v| blank?(v) } : value
+        if value.is_a?(Hash)
+          value.transform_keys(&:to_s).select { |_, v| v.is_a?(String) && !blank?(v) }
+        else
+          value
+        end
       else
         value.is_a?(String) ? value : nil
       end
@@ -171,12 +182,7 @@ module Escriba
     end
 
     def source_text(dev)
-      source = dev.source_copy
-      if dev.plural && source.is_a?(Hash)
-        source.map { |k, v| "#{k}: #{v}" }.join(" · ")
-      else
-        source.to_s
-      end
+      Escriba.source_text(dev)
     end
 
     def blank?(value)

@@ -7,10 +7,6 @@ class EscribaPendingPublishTest < ActionDispatch::IntegrationTest
     Escriba::Translation.delete_all
   end
 
-  teardown do
-    Escriba.config.last_published_at = nil
-  end
-
   def create_string(locale:, value: nil)
     Escriba::Translation.create!(
       key: "c" * 16, locale: locale, source_copy: "Save", value: value
@@ -30,8 +26,8 @@ class EscribaPendingPublishTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "1 edit"
     assert_includes response.body, "pending deploy"
 
-    # With a publish recorded after the edits, nothing is pending.
-    Escriba.config.last_published_at = -> { 1.minute.from_now }
+    # Rows untouched since the process booted are published.
+    Escriba::Translation.update_all(updated_at: Escriba.booted_at - 1.minute)
 
     get "/escriba/translations", params: { locale: "es" }
     assert_not_includes response.body, "pending deploy"

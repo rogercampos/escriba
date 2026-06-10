@@ -98,12 +98,16 @@ There are two locale concepts:
    production, the first access to a string seeds a `dev_locale` row in the
    database with the source copy.
 
-2. **All other locales** — read from the database. Missing entries fall through
-   Rails' normal I18n fallback chain, which lands on the `dev_locale` — by
-   default that's the `dev_locale` row in the DB (seeded on first access from
-   the source string), or with `dev_locale_from_code = true` it's the source
-   string in code directly. Either way, an untranslated Spanish page in
-   production shows English copy that ultimately originated in the source.
+2. **All other locales** — read from the database first; on a DB miss the
+   dumped `config/locales/escriba.<locale>.yml` files are consulted (see
+   [Shipping copies in a PR](#shipping-copies-in-a-pr-yaml-dumps)), so copies
+   shipped with a deploy are live before anyone touches the admin UI. Entries
+   missing in both fall through Rails' normal I18n fallback chain, which lands
+   on the `dev_locale` — by default that's the `dev_locale` row in the DB
+   (seeded on first access from the source string), or with
+   `dev_locale_from_code = true` it's the source string in code directly.
+   Either way, an untranslated Spanish page in production shows English copy
+   that ultimately originated in the source.
 
 ### Environment behavior
 
@@ -140,12 +144,132 @@ seeded so translators can see what strings exist.
 Translations are read once per process and held in a never-evicted in-memory
 cache. Edits in the admin UI persist to the database but do not invalidate
 caches in running processes — **they become effective on the next deploy**.
-The admin UI displays this as a banner.
 
 This is a deliberate trade-off: it removes the need for cache invalidation
 plumbing (pub/sub, polling, version stamps) at the cost of translator latency.
 For most apps, translations change rarely; deploys are the natural refresh
 point.
+
+The admin UI makes this state visible: values edited after the last publish
+carry a **pending deploy** badge, the dashboard counts them, and the footer
+reports when the last publish happened. "Last publish" is the process' boot
+time — the moment its cache started filling, which under Kamal (and most
+deploy tools) coincides with the last deploy.
+
+To ship a feature with its translations already in place — instead of
+deploying, translating in production, and waiting for the *next* deploy — see
+[Shipping copies in a PR](#shipping-copies-in-a-pr-yaml-dumps) below.
+
+## Shipping copies in a PR (YAML dumps)
+
+There are two ways translations reach production, and they complement each
+other:
+
+- **Translate in production** (the default flow): deploy the feature, see
+  dev-locale copy everywhere, translate in the admin UI, and the values become
+  visible on the *next* deploy. Zero developer ceremony, but the first deploy
+  ships untranslated.
+- **Translate in the PR** (this flow): the PR carries the code, the new copies
+  in views, *and* their translations for every language — everything is live
+  right after the deploy that ships the feature.
+
+### The developer workflow
+
+Say you're building a feature with new copy in views:
+
+```erb
+<h1><%= E18n.t("Your order is on its way") %></h1>
+<p><%= E18n.t(one: "1 item", other: "%{count} items", count: @items.size) %></p>
+```
+
+1. **Write the feature** as usual — new `E18n.t` calls in views, helpers,
+   mailers, anywhere. You don't need to run any of it.
+
+2. **Run the dump**:
+
+   ```sh
+   bin/rails escriba:dump_yml
+   ```
+
+   This regenerates `config/locales/escriba.<locale>.yml` — one file per
+   supported locale (only `escriba.*.yml` files are touched; other locale
+   files are left alone). The catalog comes from the database **plus static
+   extraction**: the source tree (`app/`, `lib/`, including `.erb` views) is
+   parsed with Prism for `E18n.t` calls, so your brand-new strings appear in
+   every locale file even though they have never executed. New entries are
+   blank, annotated with the source copy as a comment:
+
+   ```yaml
+   es:
+     escriba:
+       # Your order is on its way
+       7c9e1b2a8f3d4e5f: ''
+       # one: 1 item · other: %{count} items
+       3f2a9c8b1d7e6a4b:
+         one: ''
+         other: ''
+   ```
+
+   Regenerating is lossless: every entry keeps its value from your local
+   database or, when your local DB doesn't have it (it usually doesn't have
+   what teammates translated), from the committed files themselves. You can
+   re-run the task as often as you like.
+
+3. **Fill in the blanks** for your new strings in each locale file — by hand,
+   or paste the file into your favorite LLM (the source-copy comments give it
+   everything it needs).
+
+4. **Commit code and locale files together.** Reviewers see the new copy and
+   its translations side by side in the diff.
+
+5. **Merge and deploy.** The copies are live in all languages immediately:
+   at runtime the backend reads the database first and falls back to these
+   files for values the database doesn't have yet. With the deploy-time
+   import below, they also land in the database so the admin UI reflects
+   them.
+
+Notes:
+
+- Blank entries count as missing — they are never served; the normal locale
+  fallback chain applies (users see the dev-locale copy until someone fills
+  the value, in the file or in the admin UI).
+- The database always wins over the files, so anything translators changed in
+  the admin UI is unaffected by whatever the files say.
+- Calls whose copy isn't a literal string can't be extracted statically; the
+  task lists them so you can exercise those code paths once instead.
+- When `dev_locale_from_code` is enabled no file is generated for the dev
+  locale — that locale is always served from source code.
+
+### Importing on deploy
+
+The files work as a live fallback with zero setup, but importing them into
+the database at deploy time keeps the admin UI consistent (completeness,
+Missing filter, lint issues all reflect what production serves):
+
+```sh
+bin/rails escriba:import_yml
+```
+
+The import seeds the dev-locale catalog from static extraction (so brand-new
+strings exist in the admin UI right at deploy), then fills in values the
+database has blank. It never overwrites — an edit made in the admin UI always
+wins over the files — skips blank entries, rejects values with error-level
+lint issues, and is idempotent, so it is safe to run on every boot.
+
+With Kamal, run it from a `pre-app-boot` hook. Kamal executes hooks from your
+repo's `.kamal/hooks/` directory on the machine running the deploy, so a gem
+cannot register one automatically — add it yourself:
+
+```sh
+#!/bin/sh
+# .kamal/hooks/pre-app-boot (chmod +x)
+kamal app exec --version "$KAMAL_VERSION" "bin/rails escriba:import_yml"
+```
+
+The hook runs after the new image is pulled and before the new containers
+boot, once per boot group (re-running is fine — the task is idempotent).
+Alternatively, call `bin/rails escriba:import_yml` from `bin/docker-entrypoint`
+next to `db:prepare`, which needs no hook at all.
 
 ## API
 
@@ -253,11 +377,12 @@ Mounted at whatever path you chose (the install generator suggests `/escriba`).
 Styled with Tailwind (see above). The pages:
 
 - **Dashboard** — per-locale completeness (translated / total, missing), the
-  most recently discovered strings, and the translations staged for the next
-  deploy.
-- **Translations** — a per-locale workspace: the list of known strings with
-  their values for the selected locale, a source-copy search, and `All /
-  Missing / Issues` filters (with counts). Each value carries lint badges.
+  most recently discovered strings, a lint-issue summary by type, and the
+  count of edits pending the next deploy.
+- **Translations** — a per-locale workspace: the paginated list of known
+  strings with their values for the selected locale, a source-copy search, and
+  `All / Missing / Issues` filters (with counts). Each value carries lint
+  badges and a "pending deploy" badge when edited after the last publish.
 - **Per-key view** — the source copy, meaning, interpolation variables, and the
   value (plus lint badges) in every available locale.
 - **Edit form** per `(key, locale)` pair — singular gets a textarea, plural one
@@ -267,10 +392,12 @@ Styled with Tailwind (see above). The pages:
 - **Issues** — quality problems with existing translations across all locales:
   broken/unknown interpolations, missing required plural forms, and values
   identical to the source (looks untranslated).
-- **Import / Export** — placeholder for bulk file workflows (not wired up yet).
+- **Import / Export** — CSV export (one locale or all), CSV import with a
+  dry-run preview, and an LLM-assisted bulk-translation flow (generate a
+  prompt with the missing strings, paste the JSON answer back, review, apply).
 
-Edits do not invalidate running processes; the UI shows a banner explaining
-that changes go live on the next deploy.
+Edits do not invalidate running processes; the footer reports the last publish
+and rows edited since carry a "pending deploy" badge.
 
 ### Lint checks
 
@@ -282,15 +409,22 @@ form may legitimately drop `%{count}`), a missing required `other` plural form,
 and values identical to the source. It deliberately does not compute the full
 set of CLDR plural categories a locale requires.
 
+Lint results are computed when a row is saved and cached in its `issues`
+column (every validation input lives on the row, so only value changes
+matter). The Issues page, the dashboard summary and the `Issues` filter are
+plain indexed SQL over that column — no re-validation per request.
+
 ## Not supported (by design, for now)
 
-- **Static extraction.** Strings are discovered at runtime — they appear in the
-  admin UI after the host app calls `E18n.t(...)` for that string at least
-  once. Static extraction (parsing Ruby + ERB to find all `E18n.t` calls
-  upfront) is a planned future addition.
+- **Static extraction of dynamic copy.** Static extraction exists (it powers
+  `escriba:dump_yml` / `escriba:import_yml` — see
+  [Shipping copies in a PR](#shipping-copies-in-a-pr-yaml-dumps)), but it can
+  only resolve literal strings. Calls whose copy or `meaning:` is built at
+  runtime are still discovered the first time they execute; the tasks list
+  them so you know what extraction couldn't see.
 - **Orphan detection.** Strings whose source was deleted or edited stay in the
-  database as orphans. This will be visualized in the admin UI once static
-  extraction lands.
+  database as orphans. The extractor provides the raw material to flag them,
+  but the admin UI doesn't visualize it yet.
 - **Mid-process cache invalidation.** Refresh happens on deploy. This is a
   deliberate simplification.
 - **HTML safety / `_html` suffix conventions.** HTML safety is the host
