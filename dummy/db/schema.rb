@@ -10,10 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_13_230339) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_000000) do
   create_table "escriba_translations", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "interpolation_names"
+    t.text "issues"
     t.string "key", limit: 32, null: false
     t.string "locale", limit: 16, null: false
     t.text "meaning"
@@ -23,5 +24,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_13_230339) do
     t.text "value"
     t.index ["key", "locale"], name: "index_escriba_translations_on_key_and_locale", unique: true
     t.index ["key"], name: "index_escriba_translations_on_key"
+    t.index ["locale"], name: "index_escriba_translations_issue_rows", where: "issues IS NOT NULL"
   end
 end

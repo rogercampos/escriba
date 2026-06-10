@@ -10,6 +10,12 @@ module Escriba
       render_value_hash_or_string(row.value, plural: row.plural)
     end
 
+    # Pagy keeps #series protected; the pagination partial needs it to render
+    # the page links.
+    def pagination_series(pagy)
+      pagy.send(:series)
+    end
+
     # Plain-text (no markup) rendering of a source string, for compact/truncated
     # contexts like the dashboard lists and the Issues table.
     def source_text(row)

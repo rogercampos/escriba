@@ -43,10 +43,13 @@ ActiveRecord::Schema.define do
     t.text    :meaning
     t.text    :interpolation_names
     t.boolean :plural,              null: false, default: false
+    t.text    :issues
     t.timestamps
   end
   add_index :escriba_translations, [:key, :locale], unique: true
   add_index :escriba_translations, :key
+  add_index :escriba_translations, :locale, where: "issues IS NOT NULL",
+    name: "index_escriba_translations_issue_rows"
 end
 
 require "escriba"

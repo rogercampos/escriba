@@ -15,7 +15,10 @@ require_relative "escriba/translation_json_importer"
 require_relative "escriba/cache"
 require_relative "escriba/backend"
 require_relative "escriba/e18n"
-require_relative "escriba/engine" if defined?(Rails::Engine)
+if defined?(Rails::Engine)
+  require "pagy"
+  require_relative "escriba/engine"
+end
 
 module Escriba
   class << self

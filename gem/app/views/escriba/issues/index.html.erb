@@ -1,17 +1,16 @@
 <div class="mb-2 flex flex-wrap items-baseline justify-between gap-3">
   <h1 class="text-2xl font-semibold tracking-tight">Issues</h1>
-  <p class="text-sm text-zinc-500 tabular-nums"><%= pluralize(@issues.size, "issue") %> found</p>
+  <p class="text-sm text-zinc-500 tabular-nums"><%= pluralize(@pagy.count, "issue") %> found</p>
 </div>
 <p class="mb-6 max-w-prose text-sm text-pretty text-zinc-500">
   Quality problems with existing translations. Untranslated values and broken
   interpolations show up here; entirely missing translations live under each
   locale's <span class="font-medium text-zinc-700">Missing</span> filter.
-  <% if @capped %><br>Scanned the first <%= @scanned %> strings.<% end %>
 </p>
 
-<% if @issues.empty? %>
+<% if @rows.empty? %>
   <div class="rounded-lg border border-dashed border-green-600/20 bg-green-50 p-12 text-center text-sm text-green-700">
-    No issues found across the scanned strings.
+    No issues found.
   </div>
 <% else %>
   <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
@@ -26,13 +25,13 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-zinc-950/5">
-          <% @issues.each do |entry| %>
+          <% @rows.each do |row| %>
             <tr class="align-top hover:bg-zinc-50">
-              <td class="py-3 pr-3 pl-0 font-medium uppercase whitespace-nowrap text-zinc-900"><%= entry[:locale] %></td>
-              <td class="px-3 py-3 text-zinc-900"><%= truncate(source_text(entry[:dev]), length: 80) %></td>
-              <td class="px-3 py-3"><%= render_issue_badges(entry[:issues], skip_missing: false) %></td>
+              <td class="py-3 pr-3 pl-0 font-medium uppercase whitespace-nowrap text-zinc-900"><%= row.locale %></td>
+              <td class="px-3 py-3 text-zinc-900"><%= truncate(source_text(row), length: 80) %></td>
+              <td class="px-3 py-3"><%= render_issue_badges(row.issue_list, skip_missing: false) %></td>
               <td class="py-3 pr-0 pl-3 text-right whitespace-nowrap">
-                <%= link_to "Fix", edit_translation_path(entry[:dev].key, entry[:locale]), class: "font-medium text-blue-600 hover:text-blue-500" %>
+                <%= link_to "Fix", edit_translation_path(row.key, row.locale), class: "font-medium text-blue-600 hover:text-blue-500" %>
               </td>
             </tr>
           <% end %>
@@ -40,4 +39,6 @@
       </table>
     </div>
   </div>
+
+  <%= render "escriba/shared/pagination", pagy: @pagy %>
 <% end %>

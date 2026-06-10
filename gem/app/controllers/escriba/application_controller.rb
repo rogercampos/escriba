@@ -2,6 +2,10 @@
 
 module Escriba
   class ApplicationController < ActionController::Base
+    include Pagy::Method
+
+    PER_PAGE = 50
+
     protect_from_forgery with: :exception
 
     layout "escriba/application"

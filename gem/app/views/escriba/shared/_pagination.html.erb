@@ -1,0 +1,32 @@
+<% if pagy.pages > 1 %>
+  <nav class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-950/5 pt-4" aria-label="Pagination">
+    <p class="text-sm text-zinc-500 tabular-nums">
+      Showing <span class="font-medium text-zinc-700"><%= pagy.from %></span>–<span class="font-medium text-zinc-700"><%= pagy.to %></span>
+      of <span class="font-medium text-zinc-700"><%= pagy.count %></span>
+    </p>
+
+    <div class="flex items-center gap-1">
+      <% if (prev_url = pagy.page_url(:previous)) %>
+        <a href="<%= prev_url %>" rel="prev" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100">Previous</a>
+      <% else %>
+        <span aria-disabled="true" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300">Previous</span>
+      <% end %>
+
+      <% pagination_series(pagy).each do |item| %>
+        <% if item.is_a?(Integer) %>
+          <a href="<%= pagy.page_url(item) %>" class="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 tabular-nums hover:bg-zinc-100"><%= item %></a>
+        <% elsif item.is_a?(String) %>
+          <span aria-current="page" class="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white tabular-nums"><%= item %></span>
+        <% else %>
+          <span class="px-1 py-1.5 text-sm text-zinc-400">…</span>
+        <% end %>
+      <% end %>
+
+      <% if (next_url = pagy.page_url(:next)) %>
+        <a href="<%= next_url %>" rel="next" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100">Next</a>
+      <% else %>
+        <span aria-disabled="true" class="rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300">Next</span>
+      <% end %>
+    </div>
+  </nav>
+<% end %>

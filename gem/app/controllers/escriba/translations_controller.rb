@@ -2,7 +2,6 @@
 
 module Escriba
   class TranslationsController < ApplicationController
-    LIST_LIMIT = 500
     FILTERS = %w[all missing issues].freeze
 
     def index
@@ -13,29 +12,33 @@ module Escriba
 
       scope = Escriba::Translation.for_locale(dev_locale).order(:source_copy)
       scope = scope.where("source_copy LIKE ?", "%#{sanitize_like(@query)}%") if @query.present?
-      dev_rows = scope.limit(LIST_LIMIT).to_a
-
-      @values = Escriba::Translation
-        .where(locale: @locale.to_s, key: dev_rows.map(&:key))
-        .index_by(&:key)
 
       if @locale == dev_locale
-        @counts = { all: dev_rows.size, missing: 0, issues: 0 }
-        @dev_rows = dev_rows
+        @pagy, @dev_rows = pagy(:offset, scope, limit: PER_PAGE)
+        @counts = { all: @pagy.count, missing: 0, issues: 0 }
       else
-        classified = dev_rows.map { |dev| [dev, classify(dev, @values[dev.key])] }
+        # Missing = no target row with a value (blank values are normalized to
+        # NULL at write time); issues = the lint cache the model maintains.
+        target = Escriba::Translation.for_locale(@locale)
+        translated_keys = target.where.not(value: nil).select(:key)
+        issue_keys = target.with_issues.select(:key)
+
         @counts = {
-          all: dev_rows.size,
-          missing: classified.count { |(_, c)| c == :missing },
-          issues: classified.count { |(_, c)| c == :issues },
+          all: scope.count,
+          missing: scope.where.not(key: translated_keys).count,
+          issues: scope.where(key: issue_keys).count,
         }
-        selected = case @filter
-                   when "missing" then classified.select { |(_, c)| c == :missing }
-                   when "issues"  then classified.select { |(_, c)| c == :issues }
-                   else classified
+        filtered = case @filter
+                   when "missing" then scope.where.not(key: translated_keys)
+                   when "issues"  then scope.where(key: issue_keys)
+                   else scope
                    end
-        @dev_rows = selected.map(&:first)
+        @pagy, @dev_rows = pagy(:offset, filtered, limit: PER_PAGE)
       end
+
+      @values = Escriba::Translation
+        .where(locale: @locale.to_s, key: @dev_rows.map(&:key))
+        .index_by(&:key)
     end
 
     def show
@@ -86,14 +89,6 @@ module Escriba
       redirect_to translation_path(@key),
         alert: "The #{@locale} locale is managed in source code and cannot be edited."
       true
-    end
-
-    def classify(dev, target)
-      issues = translation_issues(dev, target)
-      return :ok if issues.empty?
-      return :missing if issues.any? { |i| i.code == :missing }
-
-      :issues
     end
 
     # The next dev string (alphabetical) with no value yet in @locale.
