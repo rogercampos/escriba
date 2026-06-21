@@ -81,4 +81,44 @@ class TestTranslation < Minitest::Test
     refute row.reload.pending_publish?
     assert_empty Escriba::Translation.pending_publish.to_a
   end
+
+  # ---------------- seed_dev_locale ----------------
+
+  def test_seed_dev_locale_stores_value_meaning_and_interpolations
+    source = {
+      value: "Hello %{name}, you have %{count} messages",
+      meaning: "greeting",
+      plural: false,
+      interpolation_names: %w[name count],
+    }
+    Escriba::Translation.seed_dev_locale(:en, [[KEY, source]])
+
+    row = Escriba::Translation.find_by(key: KEY, locale: "en")
+    assert_equal "Hello %{name}, you have %{count} messages", row.value
+    assert_equal "Hello %{name}, you have %{count} messages", row.source_copy
+    assert_equal "greeting", row.meaning
+    assert_equal %w[name count], row.interpolation_names
+    refute row.plural
+  end
+
+  def test_seed_dev_locale_stores_plural_forms
+    source = {
+      value: { "one" => "1 item", "other" => "%{count} items" },
+      meaning: nil, plural: true, interpolation_names: ["count"],
+    }
+    Escriba::Translation.seed_dev_locale(:en, [[KEY, source]])
+
+    row = Escriba::Translation.find_by(key: KEY, locale: "en")
+    assert row.plural
+    assert_equal({ "one" => "1 item", "other" => "%{count} items" }, row.value)
+  end
+
+  def test_seed_dev_locale_is_insert_only_and_leaves_existing_rows_untouched
+    create_row(locale: :en, value: "Save")
+    source = { value: "Overwritten", meaning: nil, plural: false, interpolation_names: nil }
+    Escriba::Translation.seed_dev_locale(:en, [[KEY, source]])
+
+    assert_equal 1, Escriba::Translation.where(locale: "en").count
+    assert_equal "Save", Escriba::Translation.find_by(key: KEY, locale: "en").value
+  end
 end

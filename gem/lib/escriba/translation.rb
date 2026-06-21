@@ -38,14 +38,10 @@ module Escriba
       end
     end
 
-    def self.upsert_dev_locale(key, dev_locale, source)
-      seed_dev_locale(dev_locale, [[key, source]])
-    end
-
     # Insert-only seed of dev-locale rows in one statement; existing rows are
     # left untouched. `entries` is an array of [key, source] pairs, where
     # source is the {value:, meaning:, interpolation_names:, plural:} shape
-    # the backend builds at runtime.
+    # E18n derives for each call.
     def self.seed_dev_locale(dev_locale, entries)
       return if entries.empty?
 

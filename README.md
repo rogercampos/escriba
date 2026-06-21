@@ -83,10 +83,12 @@ mailers, jobs, POROs.
 <p><%= E18n.t(one: "1 item", other: "%{count} items", count: cart.size) %></p>
 ```
 
-Strings are discovered at runtime: each one appears in the admin UI the first
-time the host app renders it in production. Visit `/escriba` to translate
-discovered strings into other locales. Translations become effective on the
-next deploy.
+Strings are discovered by static extraction: `escriba:dump_yml` scans the
+source for `E18n.t` calls and `escriba:import_yml` loads them into the catalog
+at deploy time (see [Shipping copies in a PR](#shipping-copies-in-a-pr-yaml-dumps)).
+The lookup path itself is read-only — rendering a page never writes. Visit
+`/escriba` to translate the catalog into other locales. Translations become
+effective on the next deploy.
 
 ## Mental model
 
@@ -95,17 +97,17 @@ There are two locale concepts:
 1. **`dev_locale`** (defaults to `:en`) — the locale whose strings live inside
    the source code. In development and test this is short-circuited: Escriba
    returns the source string directly without touching the database. In
-   production, the first access to a string seeds a `dev_locale` row in the
-   database with the source copy.
+   production it reads the `dev_locale` row from the database (seeded at deploy
+   by `escriba:import_yml`), and if none exists yet serves the source copy from
+   code as a fallback — the lookup never writes.
 
 2. **All other locales** — read from the database first; on a DB miss the
    dumped `config/locales/escriba.<locale>.yml` files are consulted (see
    [Shipping copies in a PR](#shipping-copies-in-a-pr-yaml-dumps)), so copies
    shipped with a deploy are live before anyone touches the admin UI. Entries
    missing in both fall through Rails' normal I18n fallback chain, which lands
-   on the `dev_locale` — by default that's the `dev_locale` row in the DB
-   (seeded on first access from the source string), or with
-   `dev_locale_from_code = true` it's the source string in code directly.
+   on the `dev_locale` — the `dev_locale` row in the DB, or the source string
+   in code when there's no row (or always, with `dev_locale_from_code = true`).
    Either way, an untranslated Spanish page in production shows English copy
    that ultimately originated in the source.
 
@@ -114,11 +116,11 @@ There are two locale concepts:
 | Environment | Locale | Behavior |
 |---|---|---|
 | dev / test | == `dev_locale` | Return source from code. No DB, no cache. |
-| dev / test | != `dev_locale` | Cache → DB → fallback chain (lands on source). On miss seeds `dev_locale` row. |
-| production (default) | == `dev_locale` | Cache → DB. On miss inserts source as value, returns source. |
-| production (default) | != `dev_locale` | Cache → DB. On miss seeds `dev_locale` row, returns nil → fallback chain. |
+| dev / test | != `dev_locale` | Cache → DB → fallback chain (lands on source). No write. |
+| production (default) | == `dev_locale` | Cache → DB. On miss returns source from code. No write. |
+| production (default) | != `dev_locale` | Cache → DB. On miss returns nil → fallback chain (lands on source). No write. |
 | production, `dev_locale_from_code = true` | == `dev_locale` | Return source from code. No DB, no cache. |
-| production, `dev_locale_from_code = true` | != `dev_locale` | Cache → DB. On miss seeds `dev_locale` row, returns nil → fallback chain (lands on source). |
+| production, `dev_locale_from_code = true` | != `dev_locale` | Cache → DB. On miss returns nil → fallback chain (lands on source). No write. |
 
 ### Two modes for the dev_locale
 
@@ -130,13 +132,13 @@ source of truth.
 Set `config.dev_locale_from_code = true` to opt into the second mode. With it
 on, the `dev_locale` always reads from source code regardless of environment —
 just like dev/test does by default. The admin UI hides the `dev_locale` from
-the editable tabs and refuses direct edit attempts. Discovery still works:
-when a non-dev locale request misses in the DB, a `dev_locale` row is still
-seeded so translators can see what strings exist.
+the editable tabs and refuses direct edit attempts. The catalog translators
+work from is populated the same way in either mode: by static extraction at
+deploy time, independent of this setting.
 
 | `dev_locale_from_code` | What changes |
 |---|---|
-| `false` (default) | `dev_locale` rows are editable in the admin UI; runtime reads them from the DB in production. |
+| `false` (default) | `dev_locale` rows are editable in the admin UI; production reads them from the DB. |
 | `true` | `dev_locale` always served from source code; admin UI shows the source as read-only. |
 
 ### Caching and refresh
@@ -377,7 +379,7 @@ Mounted at whatever path you chose (the install generator suggests `/escriba`).
 Styled with Tailwind (see above). The pages:
 
 - **Dashboard** — per-locale completeness (translated / total, missing), the
-  most recently discovered strings, a lint-issue summary by type, and the
+  most recently added strings, a lint-issue summary by type, and the
   count of edits pending the next deploy.
 - **Translations** — a per-locale workspace: the paginated list of known
   strings with their values for the selected locale, a source-copy search, and
@@ -416,12 +418,13 @@ plain indexed SQL over that column — no re-validation per request.
 
 ## Not supported (by design, for now)
 
-- **Static extraction of dynamic copy.** Static extraction exists (it powers
-  `escriba:dump_yml` / `escriba:import_yml` — see
-  [Shipping copies in a PR](#shipping-copies-in-a-pr-yaml-dumps)), but it can
-  only resolve literal strings. Calls whose copy or `meaning:` is built at
-  runtime are still discovered the first time they execute; the tasks list
-  them so you know what extraction couldn't see.
+- **Static extraction of dynamic copy.** Static extraction powers
+  `escriba:dump_yml` / `escriba:import_yml` (see
+  [Shipping copies in a PR](#shipping-copies-in-a-pr-yaml-dumps)) and is the
+  only way strings enter the catalog, but it can only resolve literal strings.
+  Calls whose copy or `meaning:` is built at runtime never enter the catalog —
+  they still render via the source fallback, but won't appear in the admin UI.
+  The tasks list them so you know what extraction couldn't see.
 - **Orphan detection.** Strings whose source was deleted or edited stay in the
   database as orphans. The extractor provides the raw material to flag them,
   but the admin UI doesn't visualize it yet.

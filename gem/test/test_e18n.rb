@@ -86,16 +86,11 @@ class TestE18n < Minitest::Test
     assert_equal "Save", result
   end
 
-  def test_dev_test_non_dev_locale_seeds_dev_locale_row
+  def test_dev_test_non_dev_locale_does_not_write_to_db
     I18n.locale = :es
     E18n.t("Save")
 
-    rows = Escriba::Translation.all.to_a
-    assert_equal 1, rows.size
-    assert_equal "en", rows.first.locale
-    assert_equal "Save", rows.first.value
-    assert_equal "Save", rows.first.source_copy
-    refute rows.first.plural
+    assert_equal 0, Escriba::Translation.count
   end
 
   def test_dev_test_non_dev_locale_does_not_create_target_locale_row
@@ -142,19 +137,18 @@ class TestE18n < Minitest::Test
       E18n.t(one: "1 item", other: "%{count} items", count: 5)
   end
 
-  # ---------------- Production + dev_locale (auto-seed) ----------------
+  # ---------------- Production + dev_locale (served from source, no write) ----------------
 
-  def test_prod_dev_locale_inserts_row_and_returns_source
+  def test_prod_dev_locale_returns_source_without_writing
     ENV["ESCRIBA_ENV"] = "production"
     Escriba.reset_cache!
 
     result = E18n.t("Save")
     assert_equal "Save", result
 
-    row = Escriba::Translation.find_by(locale: "en")
-    assert row
-    assert_equal "Save", row.value
-    assert_equal "Save", row.source_copy
+    # The read path never writes: the catalog is populated at deploy time by
+    # the static extractor, not lazily on lookup.
+    assert_equal 0, Escriba::Translation.count
   end
 
   def test_prod_dev_locale_uses_db_value_when_already_present
@@ -170,34 +164,20 @@ class TestE18n < Minitest::Test
     assert_equal "Save (edited)", E18n.t("Save")
   end
 
-  def test_prod_dev_locale_concurrent_inserts_do_not_raise
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
+  # ---------------- Production + non-dev_locale (fallback, no write) ----------------
 
-    hash_key = Escriba::KeyDeriver.for_singular("Concurrent")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "en",
-      value: "Concurrent", source_copy: "Concurrent",
-    )
-
-    assert_equal "Concurrent", E18n.t("Concurrent")
-  end
-
-  # ---------------- Production + non-dev_locale (seed dev row, fallback) ----------------
-
-  def test_prod_non_dev_locale_seeds_dev_row_and_falls_back
+  def test_prod_non_dev_locale_falls_back_to_source_without_writing
     ENV["ESCRIBA_ENV"] = "production"
     Escriba.reset_cache!
 
     I18n.locale = :es
     result = E18n.t("Save")
 
-    # Falls back through the chain to dev_locale (en), which after the seed
-    # has value "Save" in the DB.
+    # No DB row and no YAML entry: the I18n fallback chain resolves es -> en,
+    # and the dev locale serves the source copy in code.
     assert_equal "Save", result
 
-    assert Escriba::Translation.exists?(locale: "en")
-    refute Escriba::Translation.exists?(locale: "es")
+    assert_equal 0, Escriba::Translation.count
   end
 
   def test_prod_non_dev_locale_uses_db_translation_when_present
@@ -239,25 +219,20 @@ class TestE18n < Minitest::Test
 
   # ---------------- Meaning disambiguation ----------------
 
-  def test_meaning_produces_distinct_storage
+  def test_meaning_routes_to_distinct_db_rows
     ENV["ESCRIBA_ENV"] = "production"
     Escriba.reset_cache!
 
-    E18n.t("Save", meaning: "to store")
-    E18n.t("Save", meaning: "to rescue")
+    store_key = Escriba::KeyDeriver.for_singular("Save", meaning: "to store")
+    rescue_key = Escriba::KeyDeriver.for_singular("Save", meaning: "to rescue")
+    refute_equal store_key, rescue_key
 
-    keys = Escriba::Translation.pluck(:key).uniq
-    assert_equal 2, keys.size
-  end
+    I18n.locale = :es
+    Escriba::Translation.create!(key: store_key, locale: "es", value: "Guardar", source_copy: "Save")
+    Escriba::Translation.create!(key: rescue_key, locale: "es", value: "Rescatar", source_copy: "Save")
 
-  def test_meaning_is_stored_with_the_row
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    E18n.t("Save", meaning: "to store")
-
-    row = Escriba::Translation.first
-    assert_equal "to store", row.meaning
+    assert_equal "Guardar", E18n.t("Save", meaning: "to store")
+    assert_equal "Rescatar", E18n.t("Save", meaning: "to rescue")
   end
 
   # ---------------- Plural fallback ----------------
@@ -270,17 +245,14 @@ class TestE18n < Minitest::Test
       E18n.t(one: "1 item", other: "%{count} items", count: 5)
   end
 
-  def test_dev_test_non_dev_locale_plural_seeds_dev_locale_row
+  def test_dev_test_non_dev_locale_plural_does_not_write_to_db
     I18n.locale = :es
     E18n.t(one: "1 item", other: "%{count} items", count: 3)
 
-    row = Escriba::Translation.find_by(locale: "en")
-    assert row
-    assert row.plural
-    assert_equal({ "one" => "1 item", "other" => "%{count} items" }, row.value)
+    assert_equal 0, Escriba::Translation.count
   end
 
-  def test_prod_non_dev_locale_plural_seeds_dev_row_and_falls_back
+  def test_prod_non_dev_locale_plural_falls_back_without_writing
     ENV["ESCRIBA_ENV"] = "production"
     Escriba.reset_cache!
 
@@ -288,20 +260,7 @@ class TestE18n < Minitest::Test
     result = E18n.t(one: "1 item", other: "%{count} items", count: 7)
     assert_equal "7 items", result
 
-    row = Escriba::Translation.find_by(locale: "en")
-    assert row
-    assert row.plural
-  end
-
-  # ---------------- Interpolation names recorded ----------------
-
-  def test_seeded_row_records_interpolation_names
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    E18n.t("Hello %{name}, you have %{count} messages", name: "x", count: 0)
-    row = Escriba::Translation.first
-    assert_equal %w[name count], row.interpolation_names
+    assert_equal 0, Escriba::Translation.count
   end
 
   # ---------------- dev_locale_from_code mode ----------------
@@ -329,16 +288,17 @@ class TestE18n < Minitest::Test
     assert_equal "Save", E18n.t("Save")
   end
 
-  def test_prod_dev_locale_from_code_still_seeds_dev_row_for_discovery
+  def test_prod_dev_locale_from_code_non_dev_locale_falls_back_without_writing
     ENV["ESCRIBA_ENV"] = "production"
     Escriba.reset_cache!
     Escriba.configure { |c| c.dev_locale_from_code = true }
 
     I18n.locale = :es
+    # es has no DB row and no YAML: the fallback chain resolves to the dev
+    # locale, which is served from source code. Nothing is written.
     assert_equal "Save", E18n.t("Save")
 
-    assert Escriba::Translation.exists?(locale: "en")
-    refute Escriba::Translation.exists?(locale: "es")
+    assert_equal 0, Escriba::Translation.count
   end
 
   def test_prod_dev_locale_from_code_still_serves_non_dev_locale_from_db
@@ -413,7 +373,7 @@ class TestE18n < Minitest::Test
     store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "")
 
     I18n.locale = :es
-    # Falls back through the chain to the seeded dev row, not to "".
+    # Falls back through the chain to the dev-locale source copy, not to "".
     assert_equal "Save", E18n.t("Save")
   ensure
     I18n.backend.reload!

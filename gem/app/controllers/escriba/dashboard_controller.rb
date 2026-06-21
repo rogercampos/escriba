@@ -3,8 +3,9 @@
 module Escriba
   class DashboardController < ApplicationController
     def index
-      # "Known strings" = distinct keys seen so far. This is a lower bound until
-      # static extraction lands (strings are discovered at runtime).
+      # "Known strings" = distinct keys in the catalog. The catalog is
+      # populated by static extraction at deploy time (escriba:import_yml), so
+      # this reflects every extractable E18n.t call, not just executed ones.
       @total = Escriba::Translation.distinct.count(:key)
 
       @locales = editable_locales.map(&:to_sym).reject { |l| l == dev_locale }

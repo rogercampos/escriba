@@ -40,7 +40,7 @@ module Escriba
       # it doesn't have a value for yet, so copies shipped with a deploy are
       # live before anyone translates them in the admin UI.
       Escriba.cache.fetch(locale, hash_key) do
-        load_or_seed(locale, hash_key, source, dev_locale) || yml_value(yml_lookup&.call)
+        load(locale, hash_key, source, dev_locale) || yml_value(yml_lookup&.call)
       end
     end
 
@@ -58,17 +58,17 @@ module Escriba
       end
     end
 
-    def load_or_seed(locale, hash_key, source, dev_locale)
+    # Read-only: the catalog is populated at deploy time by the static
+    # extractor (see SourceExtractor / YmlImporter), so the lookup path never
+    # writes. A dev-locale string the database hasn't been seeded with yet is
+    # served from the source copy in code as an in-memory fallback; a non-dev
+    # locale returns nil and falls through to the YAML dump (and, via the I18n
+    # fallback chain, ultimately to that same dev-locale source copy).
+    def load(locale, hash_key, source, dev_locale)
       row = Escriba::Translation.find_by(key: hash_key, locale: locale.to_s)
       return row_value(row) if row
 
-      return nil unless source
-
-      Escriba::Translation.upsert_dev_locale(hash_key, dev_locale, source)
-
-      if locale == dev_locale
-        source_value(source)
-      end
+      source_value(source) if locale == dev_locale
     end
 
     def source_value(source)

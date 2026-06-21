@@ -4,9 +4,11 @@ require "prism"
 
 module Escriba
   # Statically extracts E18n.t calls from the source tree with Prism, deriving
-  # the same keys the runtime would. This is what makes the YAML dump complete
-  # for brand-new code: strings land in the catalog without ever having been
-  # executed (the database only learns about a string the first time it runs).
+  # the same keys the runtime would. This is the sole mechanism that discovers
+  # the catalog: the lookup path is read-only, so strings only enter the
+  # database through the dump/import pipeline this feeds, never by being
+  # executed. Calls with dynamic copy (see #dynamic_calls) can't be extracted —
+  # they still render via the source fallback but won't appear in the catalog.
   #
   # Escriba keys are content-hashes of literal copy, so any call whose copy
   # (and meaning) are plain string literals is fully resolvable statically.

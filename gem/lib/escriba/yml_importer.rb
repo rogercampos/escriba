@@ -10,9 +10,9 @@ module Escriba
   # pre-app-boot hook or the Docker entrypoint).
   #
   # Statically extracted strings (see SourceExtractor) are seeded as dev-locale
-  # rows first, so brand-new strings — which have no database row until they
-  # first execute — are resolvable and the whole catalog exists right at
-  # deploy. Values then go through TranslationReconciler with overwrite
+  # rows first. Since the lookup path is read-only, this seed is the only way a
+  # string enters the database — so it must run for the whole catalog to exist
+  # at deploy. Values then go through TranslationReconciler with overwrite
   # disabled: they only fill rows the database has blank (an admin edit always
   # wins), blank skeleton entries are skipped, and values with error-level
   # lint issues are rejected. The operation is idempotent, so re-running it on
@@ -46,10 +46,8 @@ module Escriba
       Escriba.config.dev_locale
     end
 
-    # Make the extracted catalog exist in the database up front, instead of
-    # waiting for each string's first execution. Same write the backend does
-    # lazily (insert-only — existing dev rows are untouched), batched into a
-    # single statement.
+    # Make the extracted catalog exist in the database (insert-only — existing
+    # dev rows are untouched), batched into a single statement.
     def seed_dev_rows!
       missing = @extracted.reject { |entry| dev_index.by_key.key?(entry.key) }
       Escriba::Translation.seed_dev_locale(dev_locale, missing.map do |entry|

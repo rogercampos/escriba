@@ -28,9 +28,10 @@ module Escriba
       # the admin UI always takes precedence).
     HEADER
 
-    # extracted: SourceExtractor::ExtractedString entries; they complete the
-    # catalog with strings the database hasn't discovered yet (the DB only
-    # learns about a string the first time it executes).
+    # extracted: SourceExtractor::ExtractedString entries; they are the catalog.
+    # The lookup path is read-only, so static extraction is what discovers
+    # strings — the database only holds what a prior import seeded or an admin
+    # edited.
     def initialize(dir:, extracted: [])
       @dir = Pathname.new(dir)
       @extracted = extracted
