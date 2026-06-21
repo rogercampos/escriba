@@ -19,6 +19,10 @@ module Escriba
       keyword_init: true)
     DynamicCall = Struct.new(:file, :line, keyword_init: true)
     FailedFile = Struct.new(:file, :message, keyword_init: true)
+    # One per resolved static call site. #strings dedupes by key (a copy used in
+    # ten places yields a single ExtractedString), so occurrences are tracked
+    # separately for callers that care how often each key is actually used.
+    Occurrence = Struct.new(:key, :file, :line, keyword_init: true)
 
     GLOB = "**/*.{rb,erb}"
 
@@ -27,6 +31,7 @@ module Escriba
       @strings = nil
       @dynamic_calls = []
       @failed_files = []
+      @occurrences = []
     end
 
     def strings
@@ -37,6 +42,13 @@ module Escriba
     def dynamic_calls
       extract
       @dynamic_calls
+    end
+
+    # Every resolved static call site, in source order. Unlike #strings this is
+    # not deduped, so grouping by #key gives per-key usage counts.
+    def occurrences
+      extract
+      @occurrences
     end
 
     # Files that couldn't be processed (e.g. an .erb with invalid UTF-8 makes
@@ -65,7 +77,7 @@ module Escriba
       result = Prism.parse(ruby_source(file))
       return unless result.success?
 
-      result.value.accept(Visitor.new(file, sink, @dynamic_calls))
+      result.value.accept(Visitor.new(file, sink, @dynamic_calls, @occurrences))
     rescue StandardError => e
       @failed_files << FailedFile.new(file: file, message: e.message)
     end
@@ -86,10 +98,11 @@ module Escriba
     end
 
     class Visitor < Prism::Visitor
-      def initialize(file, sink, dynamic_calls)
+      def initialize(file, sink, dynamic_calls, occurrences)
         @file = file
         @sink = sink
         @dynamic_calls = dynamic_calls
+        @occurrences = occurrences
         super()
       end
 
@@ -130,6 +143,7 @@ module Escriba
 
         entry.file = @file
         entry.line = node.location.start_line
+        @occurrences << Occurrence.new(key: entry.key, file: @file, line: entry.line)
         @sink[entry.key] ||= entry
       end
 

@@ -121,6 +121,24 @@ class TestSourceExtractor < Minitest::Test
     assert_equal ["Inner", "Outer %{x}"], strings.map(&:source_copy).sort
   end
 
+  def test_tracks_one_occurrence_per_call_site_even_when_strings_dedupes
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "sample.rb"), <<~RUBY)
+        E18n.t("Save")
+        E18n.t("Save")
+        E18n.t("Cancel")
+      RUBY
+      extractor = Escriba::SourceExtractor.new(paths: [dir])
+
+      assert_equal 2, extractor.strings.size
+      assert_equal 3, extractor.occurrences.size
+      counts = extractor.occurrences.group_by(&:key).transform_values(&:size)
+      assert_equal 2, counts[Escriba::KeyDeriver.for_singular("Save")]
+      assert_equal 1, counts[Escriba::KeyDeriver.for_singular("Cancel")]
+      assert_equal [1, 2], extractor.occurrences.select { |o| o.line != 3 }.map(&:line).sort
+    end
+  end
+
   def test_a_file_that_fails_to_compile_is_reported_and_does_not_abort_the_run
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "bad.erb"), "\xE9 <%= E18n.t(\"x\") %>".b)

@@ -14,6 +14,15 @@ def escriba_report_dynamic_calls(extractor)
   end
 end
 
+# A short, single-line label for an extracted string, for use in stats listings.
+def escriba_label(string)
+  copy = string.source_copy
+  text = string.plural ? copy.values_at("other", "one").compact.first : copy
+  text = text.to_s.gsub(/\s+/, " ").strip
+  label = text.length > 70 ? "#{text[0, 67]}..." : text
+  string.plural ? "#{label} (plural)" : label
+end
+
 namespace :escriba do
   desc "Dump all translations to config/locales/escriba.<locale>.yml, replacing the previous dump"
   task dump_yml: :environment do
@@ -38,5 +47,101 @@ namespace :escriba do
     puts "escriba: imported #{result[:created]} value(s), kept #{summary[:kept]} existing, " \
          "#{summary[:invalid]} invalid, #{summary[:unmatched]} unmatched"
     escriba_report_dynamic_calls(extractor)
+  end
+
+  desc "Report statistics about extracted translations (set TOP=n to size the ranked lists)"
+  task stats: :environment do
+    extractor = escriba_extractor
+    top = (ENV["TOP"] || "15").to_i
+
+    strings = extractor.strings
+    occurrences = extractor.occurrences
+    counts = occurrences.group_by(&:key).transform_values(&:size)
+    by_key = strings.index_by(&:key)
+
+    with_meaning = strings.select(&:meaning)
+    with_interpolation = strings.reject { |s| s.interpolation_names.empty? }
+    plural = strings.select(&:plural)
+    repeated = counts.select { |_, n| n > 1 }
+
+    puts "=" * 72
+    puts "Escriba translation statistics (from static extraction)"
+    puts "=" * 72
+    puts
+
+    puts "Counters"
+    puts "-" * 72
+    puts "  Distinct keys (unique copies) : #{strings.size}"
+    puts "  Total call sites (usages)     : #{occurrences.size}"
+    puts "  Reused copies (used > once)   : #{repeated.size}"
+    puts "  With a meaning string         : #{with_meaning.size}"
+    puts "  With interpolation            : #{with_interpolation.size}"
+    puts "  Plural forms                  : #{plural.size}"
+    puts "  Singular forms                : #{strings.size - plural.size}"
+    puts "  Dynamic calls (not extracted) : #{extractor.dynamic_calls.size}"
+    puts "  Files that failed to parse    : #{extractor.failed_files.size}"
+    puts "  Source files with a usage     : #{occurrences.map(&:file).uniq.size}"
+    puts
+
+    puts "Most-used copies (top #{top})"
+    puts "-" * 72
+    if repeated.empty?
+      puts "  (no copy is used more than once)"
+    else
+      counts.sort_by { |key, n| [-n, escriba_label(by_key[key])] }.first(top).each do |key, n|
+        puts format("  %4d×  %s", n, escriba_label(by_key[key]))
+      end
+    end
+    puts
+
+    puts "Copies using a meaning string (#{with_meaning.size})"
+    puts "-" * 72
+    if with_meaning.empty?
+      puts "  (none)"
+    else
+      with_meaning.sort_by { |s| escriba_label(s) }.each do |s|
+        puts "  #{escriba_label(s)}"
+        puts "      meaning: #{s.meaning.inspect}"
+      end
+    end
+    puts
+
+    # Same copy text reused under different meanings — these are the cases the
+    # meaning disambiguator exists for, since they resolve to distinct keys.
+    collisions = strings.group_by { |s| [s.source_copy, s.plural] }.select { |_, v| v.size > 1 }
+    puts "Copies sharing source text under different meanings (#{collisions.size})"
+    puts "-" * 72
+    if collisions.empty?
+      puts "  (none)"
+    else
+      collisions.each do |(_, _), group|
+        puts "  #{escriba_label(group.first)}"
+        group.each { |s| puts "      meaning: #{s.meaning.inspect}" }
+      end
+    end
+    puts
+
+    # Dynamic E18n.t calls: copy (or meaning) isn't a plain literal, so the key
+    # can't be derived statically and the copy never enters the catalog. It
+    # still renders at runtime via the source fallback, but won't be translated.
+    dynamic = extractor.dynamic_calls
+    puts "Dynamic calls — cannot be analyzed (#{dynamic.size})"
+    puts "-" * 72
+    if dynamic.empty?
+      puts "  (none — every E18n.t call has a statically derivable copy)"
+    else
+      dynamic.sort_by { |c| [c.file, c.line] }.each do |call|
+        puts "  #{call.file}:#{call.line}"
+      end
+    end
+    puts
+
+    failed = extractor.failed_files
+    unless failed.empty?
+      puts "Files that could not be parsed (#{failed.size})"
+      puts "-" * 72
+      failed.each { |f| puts "  #{f.file}: #{f.message}" }
+      puts
+    end
   end
 end
