@@ -49,6 +49,33 @@ namespace :escriba do
     escriba_report_dynamic_calls(extractor)
   end
 
+  desc "Recompute the cached lint issues for every non-dev row (clears issues that " \
+       "a validator change no longer produces, e.g. the removed untranslated check)"
+  task relint: :environment do
+    dev = Escriba.config.dev_locale.to_s
+    changed = 0
+
+    Escriba::Translation.where.not(locale: dev).find_each do |row|
+      list = Escriba::TranslationValidator.call(
+        value: row.value,
+        source_copy: row.source_copy,
+        source_interpolations: row.interpolation_names,
+        plural: row.plural,
+      )
+      list = list.reject { |i| i.code == :missing }
+      issues = list.empty? ? nil : list.map { |i| { "code" => i.code.to_s, "message" => i.message } }
+
+      next if issues == row.issues
+
+      # update_columns: rewrite the cache only, never touching updated_at — a
+      # bump there would falsely flag every row as "pending deploy".
+      row.update_columns(issues: issues)
+      changed += 1
+    end
+
+    puts "escriba: relinted #{changed} row(s)"
+  end
+
   desc "Report statistics about extracted translations (set TOP=n to size the ranked lists)"
   task stats: :environment do
     extractor = escriba_extractor

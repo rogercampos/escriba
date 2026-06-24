@@ -21,8 +21,12 @@ class TestTranslationValidator < Minitest::Test
     assert_equal [:missing], codes(value: "   ", source_copy: "Save")
   end
 
-  def test_singular_untranslated_when_identical_to_source
-    assert_equal [:untranslated], codes(value: "Save", source_copy: "Save")
+  def test_singular_identical_to_source_is_not_an_issue
+    # A value byte-identical to the source is undecidable from the string alone:
+    # it can be a legit cognate/brand/acronym (DNS, Avatar, Plan) just as easily
+    # as a missed translation. "Pending" is tracked by provenance (no value), not
+    # by string equality, so identical-to-source is no longer flagged.
+    assert_empty codes(value: "Save", source_copy: "Save")
   end
 
   def test_singular_unknown_interpolation
@@ -86,11 +90,11 @@ class TestTranslationValidator < Minitest::Test
     )
   end
 
-  def test_plural_untranslated_when_forms_identical_to_source
-    assert_includes codes(
+  def test_plural_forms_identical_to_source_is_not_an_issue
+    assert_empty codes(
       value: { "one" => "1 item", "other" => "%{count} items" },
       source_copy: { "one" => "1 item", "other" => "%{count} items" },
       plural: true,
-    ), :untranslated
+    )
   end
 end

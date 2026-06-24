@@ -23,11 +23,12 @@ class TestTranslation < Minitest::Test
     assert_empty row.issue_list
   end
 
-  def test_untranslated_value_caches_the_issue
-    row = create_row(locale: :es, value: "Save")
-    issues = row.issue_list
-    assert_equal [:untranslated], issues.map(&:code)
-    assert_kind_of String, issues.first.message
+  def test_value_identical_to_source_caches_no_issue
+    # Identical-to-source is undecidable from the string (cognate/brand vs. a
+    # real miss), so it is not flagged; it is a valid, non-null value.
+    row = create_row(locale: :es, value: "Save", source_copy: "Save")
+    assert_nil row.issues
+    assert_empty row.issue_list
   end
 
   def test_interpolation_issues_are_cached
@@ -44,7 +45,7 @@ class TestTranslation < Minitest::Test
   end
 
   def test_cache_refreshes_when_the_value_changes
-    row = create_row(locale: :es, value: "Save")
+    row = create_row(locale: :es, value: "Guardar %{bogus}")
     refute_nil row.issues
 
     row.update!(value: "Guardar")
@@ -61,7 +62,7 @@ class TestTranslation < Minitest::Test
   end
 
   def test_with_issues_scope_finds_only_problematic_rows
-    create_row(locale: :es, value: "Save")
+    create_row(locale: :es, value: "Salvar %{bogus}")
     create_row(locale: :it, value: "Salva")
 
     assert_equal ["es"], Escriba::Translation.with_issues.pluck(:locale)

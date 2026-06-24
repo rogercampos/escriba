@@ -55,7 +55,6 @@ module Escriba
     def issue_label(code)
       {
         missing: "missing",
-        untranslated: "untranslated",
         unknown_interpolation: "bad interpolation",
         missing_interpolation: "missing interpolation",
         missing_plural_other: "missing plural",

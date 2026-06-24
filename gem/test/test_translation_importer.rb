@@ -158,14 +158,16 @@ class TestTranslationImporter < Minitest::Test
     assert_empty op.issues
   end
 
-  def test_untranslated_warning_still_imports
-    # Value identical to source is a *warning*, not an error — it still imports.
+  def test_value_identical_to_source_imports_cleanly
+    # A value identical to the source is undecidable from the string alone
+    # (cognate/brand vs. a real miss), so it carries no issue and imports as a
+    # normal create.
     create_row(key: KEY, locale: :en, value: "Save", source_copy: "Save")
     csv = "key,source,es\n#{KEY},Save,Save\n"
 
     op = importer(csv).operations.first
     assert_equal :create, op.status
-    assert(op.issues.any? { |i| i.code == :untranslated })
+    assert_empty op.issues
     assert_equal({ created: 1, updated: 0 }, importer(csv).apply!)
   end
 

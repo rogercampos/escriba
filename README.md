@@ -392,8 +392,9 @@ Styled with Tailwind (see above). The pages:
   `Save & next missing` jumps straight to the next untranslated string in the
   locale for fast burn-down.
 - **Issues** — quality problems with existing translations across all locales:
-  broken/unknown interpolations, missing required plural forms, and values
-  identical to the source (looks untranslated).
+  broken/unknown interpolations and missing required plural forms. Strings that
+  haven't been translated yet are not listed here — that's a provenance fact (no
+  value supplied), surfaced per-locale by the **Missing** filter.
 - **Import / Export** — CSV export (one locale or all), CSV import with a
   dry-run preview, and an LLM-assisted bulk-translation flow (generate a
   prompt with the missing strings, paste the JSON answer back, review, apply).
@@ -407,9 +408,21 @@ Translations are linted against the source string using only stored data
 (interpolation shape, plural flag, source copy) — see
 `Escriba::TranslationValidator`. It flags unknown interpolation variables
 (absent from the source), missing variables (singular only — the `one` plural
-form may legitimately drop `%{count}`), a missing required `other` plural form,
-and values identical to the source. It deliberately does not compute the full
-set of CLDR plural categories a locale requires.
+form may legitimately drop `%{count}`), and a missing required `other` plural
+form. It deliberately does not compute the full set of CLDR plural categories a
+locale requires.
+
+It does **not** flag a value that is byte-identical to its source copy. That is
+undecidable from the string alone — a legitimate cognate, brand or acronym
+(`DNS`, `SEO`, `Avatar`, `Plan`) looks exactly like a value nobody translated —
+so equality produced only false positives. Whether a translation is still
+pending is a provenance question (was a value ever supplied?), tracked
+accurately as "missing" (no row, or `value IS NULL`) and surfaced by the
+per-locale **Missing** filter, not guessed from string content.
+
+After upgrading from a version that cached the old `untranslated` lint, run
+`rake escriba:relint` once to drop those stale entries from the `issues` column
+(it rewrites only the cache, leaving `updated_at` untouched).
 
 Lint results are computed when a row is saved and cached in its `issues`
 column (every validation input lives on the row, so only value changes

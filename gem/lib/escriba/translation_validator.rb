@@ -14,7 +14,7 @@ module Escriba
 
     # Order matters: severity classification reads these.
     ERROR_CODES = %i[unknown_interpolation missing_interpolation missing_plural_other].freeze
-    WARNING_CODES = %i[untranslated missing].freeze
+    WARNING_CODES = %i[missing].freeze
 
     def self.call(...)
       new(...).issues
@@ -38,7 +38,6 @@ module Escriba
 
       list = []
       list << issue(:missing_plural_other, %(Missing the required "other" plural form.)) if @plural && !present?(forms["other"])
-      list << issue(:untranslated, "Identical to the source copy — looks untranslated.") if untranslated?
       list.concat(interpolation_issues)
       list
     end
@@ -63,15 +62,6 @@ module Escriba
 
     def forms
       @forms ||= @value.is_a?(Hash) ? @value.transform_keys(&:to_s) : {}
-    end
-
-    def untranslated?
-      if @plural
-        source = @source_copy.is_a?(Hash) ? @source_copy.transform_keys(&:to_s) : {}
-        !forms.empty? && forms == source
-      else
-        present?(@value) && @value.to_s == @source_copy.to_s
-      end
     end
 
     def interpolation_issues

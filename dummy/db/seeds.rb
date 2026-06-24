@@ -11,15 +11,16 @@
 #
 #   * es — fully translated (100%, green) but with one broken-interpolation entry,
 #          to show that completeness != correctness.
-#   * it — partially translated (Missing filter populated) + an untranslated value
-#          + missing-interpolation issues.
+#   * it — partially translated (Missing filter populated) + a legitimately
+#          identical value + missing-interpolation issues.
 #   * fr — least complete + an unknown-interpolation issue, a plural missing its
-#          required "other" form, and an untranslated plural.
+#          required "other" form, and a legitimately identical plural.
 #
 # Per-locale value can be:
 #   "a string" / { "one" => ... }  -> a normal translation
 #   :missing                       -> no row created (shows under the Missing filter)
-#   value equal to the source      -> flagged "untranslated" by the linter
+#   value equal to the source      -> a valid translation (cognate/brand/acronym);
+#                                     NOT flagged — identical-to-source is undecidable
 #   value with a bad/!@#{} variable -> flagged by the interpolation linter
 #
 # The :en (dev_locale) row is seeded from the source copy, exactly as runtime
@@ -108,11 +109,11 @@ SINGULARS = [
     fr: :missing,
   },
 
-  # --- untranslated (value identical to source) --------------------------
+  # --- legitimately identical to source (a cognate; NOT an issue) --------
   {
     copy: "Links",
     es: "Enlaces",
-    it: "Links", # untranslated
+    it: "Links", # identical to source — valid, not flagged
     fr: "Liens",
   },
 
@@ -156,7 +157,7 @@ PLURALS = [
     fr: { one: "%{count} fichier", other: "%{count} fichiers" },
   },
   {
-    # fr: untranslated (identical to source).
+    # fr: legitimately identical to source (not flagged).
     forms: { one: "%{count} day left", other: "%{count} days left" },
     es: { one: "%{count} día restante", other: "%{count} días restantes" },
     it: { one: "%{count} giorno rimasto", other: "%{count} giorni rimasti" },
