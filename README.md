@@ -236,7 +236,9 @@ Notes:
   fallback chain applies (users see the dev-locale copy until someone fills
   the value, in the file or in the admin UI).
 - The database always wins over the files, so anything translators changed in
-  the admin UI is unaffected by whatever the files say.
+  the admin UI is unaffected by whatever the files say. **This also means a
+  file edit cannot change a translation the database already has** — see
+  [Changing a translation whose source copy hasn't changed](#changing-a-translation-whose-source-copy-hasnt-changed).
 - Calls whose copy isn't a literal string can't be extracted statically; the
   task lists them so you can exercise those code paths once instead.
 - When `dev_locale_from_code` is enabled no file is generated for the dev
@@ -272,6 +274,46 @@ The hook runs after the new image is pulled and before the new containers
 boot, once per boot group (re-running is fine — the task is idempotent).
 Alternatively, call `bin/rails escriba:import_yml` from `bin/docker-entrypoint`
 next to `db:prepare`, which needs no hook at all.
+
+### Changing a translation whose source copy hasn't changed
+
+Editing English is easy: different copy is a different key, so no row exists,
+the file value is served immediately and the import seeds it. The workflow
+above covers that end to end.
+
+Editing **only a translation** is the case to know about, because the obvious
+move does not work. The key is derived from the source copy, so it hasn't
+changed either, so the database already has a row — and both halves of the
+system prefer that row. At runtime the backend reads it and never consults the
+file; on deploy the import classifies the file's value as `kept` and writes
+nothing. Locally it looks worse still: the next `escriba:dump_yml` overwrites
+your hand-edited file from your own database. The symptom is a value that is
+correct in the repo, correct in review, and unchanged in production.
+
+Two ways out.
+
+**Edit it in the admin UI.** Right for a handful of strings, and the only one
+that needs no deploy. It is where translations are meant to be edited, and a
+following `escriba:dump_yml` brings the files back in step.
+
+**Or import with `OVERWRITE=1`,** for a batch, or for copy that has to travel
+through code review:
+
+```sh
+bin/rails escriba:import_yml DRY_RUN=1 OVERWRITE=1   # what would change
+bin/rails escriba:import_yml OVERWRITE=1             # change it
+```
+
+Every replacement is printed with the value it discards, before it goes. Blank
+entries are still skipped (a blank means "not translated here", never "clear
+what you have") and values with error-level lint issues are still refused, so
+this loosens exactly one rule and no others.
+
+**Do not put `OVERWRITE=1` in the deploy path.** It would undo every admin
+edit on the next boot, which is the entire reason the default is what it is.
+Run it deliberately, once, and read the dry run first.
+
+`DRY_RUN=1` works on its own too, as a preview of an ordinary import.
 
 ## API
 

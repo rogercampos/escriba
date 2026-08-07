@@ -14,6 +14,14 @@ def escriba_report_dynamic_calls(extractor)
   end
 end
 
+# An on/off environment variable: set to anything but the words for "off". An
+# unset variable is off, and so is `OVERWRITE=0` — which somebody who has just
+# run it once will reach for, and which reading `ENV[...].present?` would treat
+# as a request to do it again.
+def escriba_flag?(name)
+  !["", "0", "false", "no", "off"].include?(ENV[name].to_s.strip.downcase)
+end
+
 # A short, single-line label for an extracted string, for use in stats listings.
 def escriba_label(string)
   copy = string.source_copy
@@ -35,17 +43,40 @@ namespace :escriba do
     escriba_report_dynamic_calls(extractor)
   end
 
-  desc "Import config/locales/escriba.*.yml into the database (fills blanks; never overwrites)"
+  desc "Import config/locales/escriba.*.yml into the database (fills blanks; never overwrites). " \
+       "OVERWRITE=1 also replaces values that differ; DRY_RUN=1 reports without writing"
   task import_yml: :environment do
+    overwrite = escriba_flag?("OVERWRITE")
+    dry_run = escriba_flag?("DRY_RUN")
+
     extractor = escriba_extractor
     importer = Escriba::YmlImporter.new(
-      dir: Rails.root.join("config/locales"), extracted: extractor.strings
+      dir: Rails.root.join("config/locales"), extracted: extractor.strings, overwrite: overwrite
     )
 
     summary = importer.summary
-    result = importer.apply!
-    puts "escriba: imported #{result[:created]} value(s), kept #{summary[:kept]} existing, " \
-         "#{summary[:invalid]} invalid, #{summary[:unmatched]} unmatched"
+
+    # Every replacement is named. What it discards is whatever the database
+    # holds, which is where translators' own edits live — so an operator who
+    # asked for OVERWRITE gets to see exactly what they asked for before it is
+    # gone, and afterwards has a record of it in the deploy log.
+    importer.operations.each do |op|
+      next unless op.status == :overwrite
+
+      puts "escriba: #{op.locale} #{op.key} replacing #{op.old_value.inspect} with #{op.new_value.inspect}"
+    end
+
+    if dry_run
+      puts "escriba: DRY RUN, nothing written — would create #{summary[:create]}, " \
+           "replace #{summary[:overwrite]}, keep #{summary[:kept]} existing, " \
+           "#{summary[:invalid]} invalid, #{summary[:unmatched]} unmatched"
+    else
+      result = importer.apply!
+      puts "escriba: imported #{result[:created]} value(s), replaced #{result[:updated]}, " \
+           "kept #{summary[:kept]} existing, #{summary[:invalid]} invalid, " \
+           "#{summary[:unmatched]} unmatched"
+    end
+
     escriba_report_dynamic_calls(extractor)
   end
 
