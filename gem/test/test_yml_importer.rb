@@ -31,8 +31,8 @@ class TestYmlImporter < Minitest::Test
     end
   end
 
-  def import(dir, extracted: [])
-    Escriba::YmlImporter.new(dir: dir, extracted: extracted)
+  def import(dir, extracted: [], overwrite: false)
+    Escriba::YmlImporter.new(dir: dir, extracted: extracted, overwrite: overwrite)
   end
 
   def extracted_string(copy)
@@ -62,6 +62,82 @@ class TestYmlImporter < Minitest::Test
       importer.apply!
 
       assert_equal "Guardar (admin)", Escriba::Translation.find_by(key: KEY, locale: "es").value
+    end
+  end
+
+  # The one case the default cannot serve: the source copy is unchanged, so the
+  # key is unchanged, so a row already exists and no file edit can ever reach
+  # it. Without this the value in the repo and the value in production disagree
+  # forever, and only the admin UI can settle it.
+  def test_overwrite_replaces_a_value_that_differs
+    create_dev_row
+    Escriba::Translation.create!(key: KEY, locale: "es", value: "Guardar (old)", source_copy: "Save")
+
+    with_yml(:es, { KEY => "Guardar (new)" }) do |dir|
+      importer = import(dir, overwrite: true)
+
+      assert_equal 1, importer.summary[:overwrite]
+      assert_equal 0, importer.summary[:kept]
+      assert_equal({ created: 0, updated: 1 }, importer.apply!)
+      assert_equal "Guardar (new)", Escriba::Translation.find_by(key: KEY, locale: "es").value
+    end
+  end
+
+  # So an operator can see what they are about to discard. The reconciler
+  # carries the old value on the operation for exactly this.
+  def test_overwrite_reports_the_value_it_would_replace_before_applying
+    create_dev_row
+    Escriba::Translation.create!(key: KEY, locale: "es", value: "Guardar (old)", source_copy: "Save")
+
+    with_yml(:es, { KEY => "Guardar (new)" }) do |dir|
+      operation = import(dir, overwrite: true).operations.find { |op| op.status == :overwrite }
+
+      assert_equal "Guardar (old)", operation.old_value
+      assert_equal "Guardar (new)", operation.new_value
+      assert_equal "Guardar (old)", Escriba::Translation.find_by(key: KEY, locale: "es").value
+    end
+  end
+
+  # Overwriting is about the database losing to the file, not about the file
+  # losing its guard rails: a value that would land in the Issues page the
+  # moment it was written is still refused.
+  def test_overwrite_still_rejects_values_with_error_level_lint_issues
+    create_dev_row(source_copy: "Hello %{name}", interpolation_names: ["name"])
+    Escriba::Translation.create!(key: KEY, locale: "es", value: "Hola %{name}", source_copy: "Hello %{name}")
+
+    with_yml(:es, { KEY => "Hola %{nombre}" }) do |dir|
+      importer = import(dir, overwrite: true)
+      importer.apply!
+
+      assert_equal 1, importer.summary[:invalid]
+      assert_equal "Hola %{name}", Escriba::Translation.find_by(key: KEY, locale: "es").value
+    end
+  end
+
+  # A blank entry is "not translated here", never "clear what you have" — which
+  # would otherwise make one OVERWRITE run wipe every value the files have no
+  # opinion about.
+  def test_overwrite_leaves_a_value_alone_when_the_file_entry_is_blank
+    create_dev_row
+    Escriba::Translation.create!(key: KEY, locale: "es", value: "Guardar", source_copy: "Save")
+
+    with_yml(:es, { KEY => "" }) do |dir|
+      import(dir, overwrite: true).apply!
+
+      assert_equal "Guardar", Escriba::Translation.find_by(key: KEY, locale: "es").value
+    end
+  end
+
+  def test_overwrite_is_idempotent
+    create_dev_row
+    Escriba::Translation.create!(key: KEY, locale: "es", value: "Guardar (old)", source_copy: "Save")
+
+    with_yml(:es, { KEY => "Guardar (new)" }) do |dir|
+      import(dir, overwrite: true).apply!
+      second = import(dir, overwrite: true)
+
+      assert_equal({ created: 0, updated: 0 }, second.apply!)
+      assert_equal 1, second.summary[:unchanged]
     end
   end
 

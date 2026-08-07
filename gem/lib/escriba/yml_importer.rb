@@ -17,10 +17,21 @@ module Escriba
   # wins), blank skeleton entries are skipped, and values with error-level
   # lint issues are rejected. The operation is idempotent, so re-running it on
   # every boot group or deploy is safe.
+  #
+  # `overwrite: true` opts out of the "database always wins" rule and replaces
+  # values that differ. **It is not for the deploy path** — a scheduled import
+  # that overwrites would undo every admin edit on the next boot, which is the
+  # whole reason the default is false. It exists for the one case the default
+  # cannot serve: changing a translation whose *source copy is unchanged*, and
+  # therefore whose key is unchanged, so the database already has a row and a
+  # file edit can never reach it. Run it deliberately, from a console or a
+  # one-off task, and look at what it would replace first (see #operations, and
+  # `escriba:import_yml DRY_RUN=1`).
   class YmlImporter
-    def initialize(dir:, extracted: [])
+    def initialize(dir:, extracted: [], overwrite: false)
       @dir = Pathname.new(dir)
       @extracted = extracted
+      @overwrite = overwrite
     end
 
     def operations
@@ -39,7 +50,7 @@ module Escriba
     private
 
     def reconciler
-      @reconciler ||= Escriba::TranslationReconciler.new(proposals, overwrite: false)
+      @reconciler ||= Escriba::TranslationReconciler.new(proposals, overwrite: @overwrite)
     end
 
     def dev_locale
