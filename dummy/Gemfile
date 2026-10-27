@@ -25,4 +25,8 @@ end
 group :test do
   gem "capybara"
   gem "selenium-webdriver"
+
+  # Coverage for the gem, merged with gem/test's report. See gem/test/simplecov_setup.rb
+  gem "simplecov", require: false
+  gem "simplecov_json_formatter", require: false
 end

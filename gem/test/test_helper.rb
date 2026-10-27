@@ -1,26 +1,8 @@
 # frozen_string_literal: true
 
 # SimpleCov MUST be started before any application code is required
-require "simplecov"
-
-if ENV["CI"]
-  require "simplecov_json_formatter"
-  SimpleCov.formatter = SimpleCov::Formatter::JSONFormatter
-else
-  SimpleCov.formatter = SimpleCov::Formatter::HTMLFormatter
-end
-
-SimpleCov.start do
-  root File.expand_path("..", __dir__)
-  command_name "Minitest"
-
-  add_filter "/test/"
-  add_filter "/dummy/"
-
-  add_group "Core", "lib/escriba"
-
-  enable_coverage :branch
-end
+require_relative "simplecov_setup"
+EscribaCoverage.start!
 
 # Default to test env unless caller overrides (production-path tests do).
 ENV["ESCRIBA_ENV"] ||= "test"

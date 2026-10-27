@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Run every suite with SimpleCov and leave one merged report at the root.
+#
+#   bin/coverage
+#
+# Both suites (gem/test and dummy/test) report into gem/coverage and SimpleCov
+# merges them there (see gem/test/simplecov_setup.rb). The merged
+# .resultset.json is then copied to coverage/.resultset.json at the root of the
+# repository. Exits non-zero when a test failed; the report is left either
+# way.
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$ROOT/gem"
+export BUNDLE_GEMFILE="$ROOT/gem/Gemfile"
+
+rm -rf "$ROOT/gem/coverage" "$ROOT/coverage"
+status=0
+bundle exec rake test || status=1
+bundle exec rake test_dummy || status=1
+
+if [[ -f "$ROOT/gem/coverage/.resultset.json" ]]; then
+  mkdir -p "$ROOT/coverage"
+  cp "$ROOT/gem/coverage/.resultset.json" "$ROOT/coverage/.resultset.json"
+else
+  echo "bin/coverage: the suites left no gem/coverage/.resultset.json" >&2
+  status=1
+fi
+exit $status
