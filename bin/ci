@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Every verification the repo has, in one command. Run it before you push.
+#
+#   bin/ci
+#
+# Steps are declared in config/ci.rb. This is the Rails 8.1 bin/ci + config/ci.rb
+# convention, adapted for a repo whose bundle lives in gem/ rather than at the
+# root: the gem's Gemfile is selected explicitly and every step runs from gem/,
+# so step commands read the same as they would in a Rails app.
+REPO_ROOT = File.expand_path("..", __dir__)
+GEM_ROOT = File.join(REPO_ROOT, "gem")
+
+ENV["BUNDLE_GEMFILE"] = File.join(GEM_ROOT, "Gemfile")
+Dir.chdir(GEM_ROOT)
+
+require "bundler/setup"
+require "active_support"
+require "active_support/continuous_integration"
+
+CI = ActiveSupport::ContinuousIntegration
+require_relative "../config/ci"

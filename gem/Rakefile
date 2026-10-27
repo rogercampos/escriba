@@ -18,3 +18,14 @@ Minitest::TestTask.create do |t|
 end
 
 task default: :test
+
+DUMMY_ROOT = File.expand_path("../dummy", __dir__)
+
+desc "Run the dummy app's suite (system tests included; needs Chrome)"
+task :test_dummy do
+  Dir.chdir(DUMMY_ROOT) do
+    # Bundler must resolve against the dummy app's own Gemfile.
+    env = { "BUNDLE_GEMFILE" => File.join(DUMMY_ROOT, "Gemfile") }
+    system(env, "bundle", "exec", "rails", "test:all") || exit(1)
+  end
+end
