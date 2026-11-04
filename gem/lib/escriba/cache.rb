@@ -8,6 +8,7 @@ module Escriba
 
     def initialize
       @store = Concurrent::Map.new
+      @catalogs = Concurrent::Map.new
     end
 
     def fetch(locale, key)
@@ -19,8 +20,17 @@ module Escriba
       cached.equal?(NULL) ? nil : cached
     end
 
+    # The database values of one locale, by key: loaded once per locale (the
+    # block runs on the first call), so a cold process makes one query per
+    # locale instead of one per key. Shares the cache's lifetime: clear! and
+    # Escriba.reset_cache! drop it along with the per-key values.
+    def catalog(locale)
+      @catalogs.compute_if_absent(locale.to_sym) { yield }
+    end
+
     def clear!
       @store.clear
+      @catalogs.clear
     end
 
     def size

@@ -341,6 +341,14 @@ class TestE18n < Minitest::Test
     I18n.backend.store_translations(locale, escriba: { hash_key => value })
   end
 
+  # How many statements reach escriba_translations while the block runs.
+  def translation_queries
+    count = 0
+    counter = ->(*, payload) { count += 1 if payload[:sql].include?("escriba_translations") }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
+    count
+  end
+
   def test_prod_non_dev_locale_falls_back_to_yml_when_db_has_no_value
     ENV["ESCRIBA_ENV"] = "production"
     Escriba.reset_cache!
@@ -350,6 +358,17 @@ class TestE18n < Minitest::Test
     assert_equal "Guardar", E18n.t("Save")
   ensure
     I18n.backend.reload!
+  end
+
+  def test_prod_loads_a_locale_from_the_database_in_one_query
+    ENV["ESCRIBA_ENV"] = "production"
+    Escriba.reset_cache!
+    Escriba::Translation.create!(key: Escriba::KeyDeriver.for_singular("Save"), locale: "es", value: "Guardar", source_copy: "Save")
+    Escriba::Translation.create!(key: Escriba::KeyDeriver.for_singular("Delete"), locale: "es", value: "Borrar", source_copy: "Delete")
+
+    I18n.locale = :es
+    queries = translation_queries { assert_equal ["Guardar", "Borrar"], [E18n.t("Save"), E18n.t("Delete")] }
+    assert_equal 1, queries
   end
 
   def test_prod_db_translation_wins_over_yml

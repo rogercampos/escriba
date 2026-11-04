@@ -64,11 +64,20 @@ module Escriba
     # served from the source copy in code as an in-memory fallback; a non-dev
     # locale returns nil and falls through to the YAML dump (and, via the I18n
     # fallback chain, ultimately to that same dev-locale source copy).
+    #
+    # A row with no value yet (an untranslated entry) still counts as present:
+    # it returns nil without the dev-locale source fallback, as it always has.
     def load(locale, hash_key, source, dev_locale)
-      row = Escriba::Translation.find_by(key: hash_key, locale: locale.to_s)
-      return row_value(row) if row
+      catalog = Escriba.cache.catalog(locale) { load_catalog(locale) }
+      return catalog[hash_key] if catalog.key?(hash_key)
 
       source_value(source) if locale == dev_locale
+    end
+
+    def load_catalog(locale)
+      Escriba::Translation.for_locale(locale).pluck(:key, :value, :plural).to_h do |key, value, plural|
+        [key, row_value(value, plural)]
+      end
     end
 
     def source_value(source)
@@ -77,9 +86,8 @@ module Escriba
       value.is_a?(Hash) ? value.transform_keys(&:to_sym) : value
     end
 
-    def row_value(row)
-      value = row.value
-      if row.plural && value.is_a?(Hash)
+    def row_value(value, plural)
+      if plural && value.is_a?(Hash)
         value.transform_keys(&:to_sym)
       else
         value

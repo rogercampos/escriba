@@ -66,6 +66,23 @@ class TestCache < Minitest::Test
     assert_equal 0, @cache.size
   end
 
+  def test_catalog_loads_each_locale_once
+    loads = []
+    @cache.catalog(:es) { loads << :es; { "abc" => "Guardar" } }
+    @cache.catalog("es") { loads << :es; {} }
+    @cache.catalog(:fr) { loads << :fr; { "abc" => "Enregistrer" } }
+
+    assert_equal [:es, :fr], loads
+    assert_equal({ "abc" => "Guardar" }, @cache.catalog(:es) { {} })
+    assert_equal({ "abc" => "Enregistrer" }, @cache.catalog(:fr) { {} })
+  end
+
+  def test_clear_drops_the_catalogs
+    @cache.catalog(:es) { { "abc" => "Guardar" } }
+    @cache.clear!
+    assert_equal({ "abc" => "Otra" }, @cache.catalog(:es) { { "abc" => "Otra" } })
+  end
+
   def test_concurrent_writes_to_same_key_only_yield_once
     @cache = Escriba::Cache.new
     barrier = Queue.new
