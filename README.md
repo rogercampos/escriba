@@ -266,8 +266,10 @@ in a mounted admin UI and imported from the files at deploy. To upgrade:
 
 1. **Rescue anything only the database has** before anything else. An admin
    edit that never went through `escriba:dump_yml` exists only in production's
-   table: compare its non-blank values with the files and copy the differences
-   into them.
+   table. Compare its non-blank values with the files, and copy into them every
+   difference whose key is still in the source — including keys the files have
+   no entry for at all (a string added after the last dump and translated in
+   the admin UI). Rows for keys no longer in the source can be ignored.
 2. Remove `mount Escriba::Engine` from `config/routes.rb`, the
    `authenticate_with` and `dev_locale_from_code` settings from the initializer
    (the dev locale is now always served from the code), the
