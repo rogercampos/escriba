@@ -6,51 +6,17 @@ require_relative "escriba/configuration"
 require_relative "escriba/yml_format"
 require_relative "escriba/key_deriver"
 require_relative "escriba/translation_validator"
-require_relative "escriba/dev_index"
-require_relative "escriba/translation_reconciler"
-require_relative "escriba/translation_schema"
-require_relative "escriba/translation_exporter"
-require_relative "escriba/translation_importer"
-require_relative "escriba/translation_prompt"
-require_relative "escriba/translation_json_importer"
-require_relative "escriba/yml_dumper"
-require_relative "escriba/yml_importer"
 require_relative "escriba/source_extractor"
-require_relative "escriba/cache"
+require_relative "escriba/yml_dumper"
+require_relative "escriba/check"
 require_relative "escriba/backend"
 require_relative "escriba/e18n"
-if defined?(Rails::Engine)
-  require "pagy"
-  require_relative "escriba/engine"
-end
+require_relative "escriba/railtie" if defined?(Rails::Railtie)
 
 module Escriba
-  # When this process loaded the library, i.e. when its per-process
-  # translation cache started filling. Translations are cached per process, so
-  # this is also when edits were last published from this process' point of
-  # view — under Kamal (and most deploy tools) that's the last deploy. Rows
-  # updated after this moment may still be served stale.
-  BOOTED_AT = Time.now.utc
-
   class << self
     def config
       @config ||= Configuration.new
-    end
-
-    def booted_at
-      BOOTED_AT
-    end
-
-    # Plain-text rendering of an entry's source copy (plural forms joined on
-    # one line). Shared by the admin UI, the reconciler and the YAML dumper.
-    # `entry` is anything responding to #source_copy and #plural.
-    def source_text(entry)
-      source = entry.source_copy
-      if entry.plural && source.is_a?(Hash)
-        source.map { |form, copy| "#{form}: #{copy}" }.join(" · ")
-      else
-        source.to_s
-      end
     end
 
     def configure
@@ -61,26 +27,22 @@ module Escriba
       @config = Configuration.new
     end
 
-    def cache
-      @cache ||= Cache.new
+    # The locales that have a YAML file: every available locale but the dev
+    # locale, whose copy is the source code itself.
+    def translated_locales
+      config.available_locales.map(&:to_sym) - [config.dev_locale.to_sym]
     end
 
-    def reset_cache!
-      @cache = Cache.new
-    end
-
-    def env
-      return Rails.env if defined?(Rails) && Rails.respond_to?(:env)
-
-      ENV.fetch("ESCRIBA_ENV", "development")
-    end
-
-    def dev_or_test?
-      %w[development test].include?(env.to_s)
-    end
-
-    def dev_locale_in_code?
-      dev_or_test? || config.dev_locale_from_code
+    # Plain-text rendering of a string's source copy (plural forms joined on
+    # one line), for the comments in the YAML files and for reports. `entry` is
+    # anything responding to #source_copy and #plural.
+    def source_text(entry)
+      source = entry.source_copy
+      if entry.plural && source.is_a?(Hash)
+        source.map { |form, copy| "#{form}: #{copy}" }.join(" · ")
+      else
+        source.to_s
+      end
     end
   end
 end

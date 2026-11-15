@@ -5,6 +5,10 @@ def escriba_extractor
   Escriba::SourceExtractor.new(paths: paths)
 end
 
+def escriba_dir
+  Rails.root.join("config/locales")
+end
+
 def escriba_report_dynamic_calls(extractor)
   extractor.dynamic_calls.each do |call|
     warn "escriba: skipped dynamic E18n.t call at #{call.file}:#{call.line} (copy not statically derivable)"
@@ -14,12 +18,20 @@ def escriba_report_dynamic_calls(extractor)
   end
 end
 
-# An on/off environment variable: set to anything but the words for "off". An
-# unset variable is off, and so is `OVERWRITE=0` — which somebody who has just
-# run it once will reach for, and which reading `ENV[...].present?` would treat
-# as a request to do it again.
-def escriba_flag?(name)
-  !["", "0", "false", "no", "off"].include?(ENV[name].to_s.strip.downcase)
+# { locale => [translated, total] } for every translated locale, read from its
+# file.
+def escriba_coverage(extractor)
+  Escriba.translated_locales.to_h do |locale|
+    path = escriba_dir.join(Escriba::YmlFormat.file_name(locale))
+    entries = path.exist? ? Escriba::YmlFormat.entries(path.to_s) : {}
+    translated = extractor.strings.count do |string|
+      issues = Escriba::TranslationValidator.call(
+        value: entries[string.key], source_copy: string.source_copy, plural: string.plural
+      )
+      issues.none? { |issue| issue.code == :missing }
+    end
+    [locale, [translated, extractor.strings.size]]
+  end
 end
 
 # A short, single-line label for an extracted string, for use in stats listings.
@@ -32,79 +44,29 @@ def escriba_label(string)
 end
 
 namespace :escriba do
-  desc "Dump all translations to config/locales/escriba.<locale>.yml, replacing the previous dump"
+  desc "Write config/locales/escriba.<locale>.yml for every translated locale: an entry for each " \
+       "E18n.t string in the source, keeping the values already there"
   task dump_yml: :environment do
     extractor = escriba_extractor
-    files = Escriba::YmlDumper.new(
-      dir: Rails.root.join("config/locales"), extracted: extractor.strings
-    ).dump!
+    files = Escriba::YmlDumper.new(dir: escriba_dir, extracted: extractor.strings).dump!
 
     files.each { |file| puts file }
     escriba_report_dynamic_calls(extractor)
   end
 
-  desc "Import config/locales/escriba.*.yml into the database (fills blanks; never overwrites). " \
-       "OVERWRITE=1 also replaces values that differ; DRY_RUN=1 reports without writing"
-  task import_yml: :environment do
-    overwrite = escriba_flag?("OVERWRITE")
-    dry_run = escriba_flag?("DRY_RUN")
-
+  desc "Verify the translation catalog: every E18n.t call extractable, config/locales/escriba.*.yml " \
+       "up to date with the source, and every value servable. Fails with the list of problems"
+  task check: :environment do
     extractor = escriba_extractor
-    importer = Escriba::YmlImporter.new(
-      dir: Rails.root.join("config/locales"), extracted: extractor.strings, overwrite: overwrite
-    )
+    check = Escriba::Check.new(extractor: extractor, dir: escriba_dir, root: Rails.root)
 
-    summary = importer.summary
-
-    # Every replacement is named. What it discards is whatever the database
-    # holds, which is where translators' own edits live — so an operator who
-    # asked for OVERWRITE gets to see exactly what they asked for before it is
-    # gone, and afterwards has a record of it in the deploy log.
-    importer.operations.each do |op|
-      next unless op.status == :overwrite
-
-      puts "escriba: #{op.locale} #{op.key} replacing #{op.old_value.inspect} with #{op.new_value.inspect}"
-    end
-
-    if dry_run
-      puts "escriba: DRY RUN, nothing written — would create #{summary[:create]}, " \
-           "replace #{summary[:overwrite]}, keep #{summary[:kept]} existing, " \
-           "#{summary[:invalid]} invalid, #{summary[:unmatched]} unmatched"
+    if check.ok?
+      untranslated = escriba_coverage(extractor).sum { |_, (translated, total)| total - translated }
+      puts "escriba:check OK: #{extractor.strings.size} strings, #{untranslated} untranslated entry(ies) " \
+           "across #{Escriba.translated_locales.size} locale(s)."
     else
-      result = importer.apply!
-      puts "escriba: imported #{result[:created]} value(s), replaced #{result[:updated]}, " \
-           "kept #{summary[:kept]} existing, #{summary[:invalid]} invalid, " \
-           "#{summary[:unmatched]} unmatched"
+      abort(["escriba:check FAILED:", *check.problems.map { |problem| "  - #{problem}" }, ""].join("\n"))
     end
-
-    escriba_report_dynamic_calls(extractor)
-  end
-
-  desc "Recompute the cached lint issues for every non-dev row (clears issues that " \
-       "a validator change no longer produces, e.g. the removed untranslated check)"
-  task relint: :environment do
-    dev = Escriba.config.dev_locale.to_s
-    changed = 0
-
-    Escriba::Translation.where.not(locale: dev).find_each do |row|
-      list = Escriba::TranslationValidator.call(
-        value: row.value,
-        source_copy: row.source_copy,
-        source_interpolations: row.interpolation_names,
-        plural: row.plural,
-      )
-      list = list.reject { |i| i.code == :missing }
-      issues = list.empty? ? nil : list.map { |i| { "code" => i.code.to_s, "message" => i.message } }
-
-      next if issues == row.issues
-
-      # update_columns: rewrite the cache only, never touching updated_at — a
-      # bump there would falsely flag every row as "pending deploy".
-      row.update_columns(issues: issues)
-      changed += 1
-    end
-
-    puts "escriba: relinted #{changed} row(s)"
   end
 
   desc "Report statistics about extracted translations (set TOP=n to size the ranked lists)"
@@ -139,6 +101,14 @@ namespace :escriba do
     puts "  Dynamic calls (not extracted) : #{extractor.dynamic_calls.size}"
     puts "  Files that failed to parse    : #{extractor.failed_files.size}"
     puts "  Source files with a usage     : #{occurrences.map(&:file).uniq.size}"
+    puts
+
+    puts "Translated, per locale (from config/locales/escriba.<locale>.yml)"
+    puts "-" * 72
+    escriba_coverage(extractor).each do |locale, (translated, total)|
+      percent = total.zero? ? 100.0 : translated * 100.0 / total
+      puts format("  %-8s %5d / %-5d %5.1f%%", locale, translated, total, percent)
+    end
     puts
 
     puts "Most-used copies (top #{top})"
@@ -181,7 +151,7 @@ namespace :escriba do
 
     # Dynamic E18n.t calls: copy (or meaning) isn't a plain literal, so the key
     # can't be derived statically and the copy never enters the catalog. It
-    # still renders at runtime via the source fallback, but won't be translated.
+    # still renders the copy it is given, but is never translated.
     dynamic = extractor.dynamic_calls
     puts "Dynamic calls — cannot be analyzed (#{dynamic.size})"
     puts "-" * 72

@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
 module Escriba
-  # Validates a translation's value against the source string it translates,
-  # using only data already stored on the rows (interpolation shape, plural
-  # flag, source copy). Pure and side-effect-free, so it is safe to run across
-  # many rows (workspace lists, the Issues page, the dashboard).
+  # Validates a translation's value against the source string it translates
+  # (its interpolations and plural forms). Pure and side-effect-free;
+  # `escriba:check` runs it over every value in the YAML files.
   #
   # It deliberately does NOT try to compute the full set of CLDR plural
   # categories a locale requires (that needs CLDR data Escriba doesn't ship);
@@ -12,9 +11,8 @@ module Escriba
   class TranslationValidator
     Issue = Struct.new(:code, :message, keyword_init: true)
 
-    # Order matters: severity classification reads these.
+    # Every code but :missing (an untranslated value, which is allowed).
     ERROR_CODES = %i[unknown_interpolation missing_interpolation missing_plural_other].freeze
-    WARNING_CODES = %i[missing].freeze
 
     def self.call(...)
       new(...).issues

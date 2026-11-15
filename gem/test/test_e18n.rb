@@ -1,20 +1,22 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "tmpdir"
 
 class TestE18n < Minitest::Test
   def setup
     Escriba.reset_config!
-    Escriba.reset_cache!
-    Escriba::Translation.delete_all
     I18n.locale = :en
-    ENV["ESCRIBA_ENV"] = "test"
   end
 
   def teardown
-    ENV["ESCRIBA_ENV"] = "test"
-    Escriba.reset_cache!
+    I18n.backend.reload!
     I18n.locale = :en
+  end
+
+  # What a config/locales/escriba.<locale>.yml file holds, once I18n loads it.
+  def store_yml(locale, hash_key, value)
+    I18n.backend.store_translations(locale, escriba: { hash_key => value })
   end
 
   # ---------------- Signature errors ----------------
@@ -46,372 +48,98 @@ class TestE18n < Minitest::Test
     end
   end
 
-  # ---------------- Dev/test + dev_locale (short-circuit) ----------------
+  # ---------------- Dev locale: the copy in the code ----------------
 
-  def test_dev_test_dev_locale_returns_source_directly
-    result = E18n.t("Save")
-    assert_equal "Save", result
+  def test_dev_locale_returns_the_source_copy
+    assert_equal "Save", E18n.t("Save")
   end
 
-  def test_dev_test_dev_locale_does_not_hit_db
-    E18n.t("Save")
-    assert_equal 0, Escriba::Translation.count
+  def test_dev_locale_interpolates
+    assert_equal "Hello Roger", E18n.t("Hello %{name}", name: "Roger")
   end
 
-  def test_dev_test_dev_locale_interpolates
-    result = E18n.t("Hello %{name}", name: "Roger")
-    assert_equal "Hello Roger", result
+  def test_dev_locale_pluralizes
+    assert_equal "1 item", E18n.t(one: "1 item", other: "%{count} items", count: 1)
+    assert_equal "5 items", E18n.t(one: "1 item", other: "%{count} items", count: 5)
   end
 
-  def test_dev_test_dev_locale_pluralizes_one
-    result = E18n.t(one: "1 item", other: "%{count} items", count: 1)
-    assert_equal "1 item", result
+  def test_dev_locale_ignores_a_value_stored_for_it
+    store_yml(:en, Escriba::KeyDeriver.for_singular("Save"), "Save (edited)")
+
+    assert_equal "Save", E18n.t("Save")
   end
 
-  def test_dev_test_dev_locale_pluralizes_other
-    result = E18n.t(one: "1 item", other: "%{count} items", count: 5)
-    assert_equal "5 items", result
-  end
+  # ---------------- Other locales: their YAML file ----------------
 
-  def test_dev_test_dev_locale_does_not_seed_for_plural
-    E18n.t(one: "1 item", other: "%{count} items", count: 3)
-    assert_equal 0, Escriba::Translation.count
-  end
-
-  # ---------------- Dev/test + non-dev_locale (fallback) ----------------
-
-  def test_dev_test_non_dev_locale_falls_back_to_source
-    I18n.locale = :es
-    result = E18n.t("Save")
-    assert_equal "Save", result
-  end
-
-  def test_dev_test_non_dev_locale_does_not_write_to_db
-    I18n.locale = :es
-    E18n.t("Save")
-
-    assert_equal 0, Escriba::Translation.count
-  end
-
-  def test_dev_test_non_dev_locale_does_not_create_target_locale_row
-    I18n.locale = :es
-    E18n.t("Save")
-    refute Escriba::Translation.exists?(locale: "es")
-  end
-
-  def test_dev_test_non_dev_locale_uses_db_translation_when_present
-    hash_key = Escriba::KeyDeriver.for_singular("Save")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "es",
-      value: "Guardar", source_copy: "Save",
-    )
+  def test_serves_the_translation_from_the_file
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "Guardar")
 
     I18n.locale = :es
     assert_equal "Guardar", E18n.t("Save")
   end
 
-  def test_dev_test_non_dev_locale_interpolates_db_translation
-    hash_key = Escriba::KeyDeriver.for_singular("Hello %{name}")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "es",
-      value: "Hola %{name}", source_copy: "Hello %{name}",
-      interpolation_names: ["name"],
-    )
+  def test_reads_escriba_files_from_the_i18n_load_path
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "escriba.es.yml")
+      File.write(path, YAML.dump("es" => { "escriba" => { Escriba::KeyDeriver.for_singular("Delete") => "Borrar" } }))
+      I18n.load_path += [path]
+      I18n.backend.reload!
+
+      I18n.locale = :es
+      assert_equal "Borrar", E18n.t("Delete")
+    ensure
+      I18n.load_path -= [path]
+    end
+  end
+
+  def test_interpolates_the_translation
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Hello %{name}"), "Hola %{name}")
 
     I18n.locale = :es
     assert_equal "Hola Roger", E18n.t("Hello %{name}", name: "Roger")
   end
 
-  def test_dev_test_non_dev_locale_pluralizes_db_translation
-    hash_key = Escriba::KeyDeriver.for_plural(one: "1 item", other: "%{count} items")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "es", plural: true,
-      value: { "one" => "1 elemento", "other" => "%{count} elementos" },
-      source_copy: { "one" => "1 item", "other" => "%{count} items" },
-    )
+  def test_pluralizes_the_translation
+    store_yml(:es, Escriba::KeyDeriver.for_plural(one: "1 item", other: "%{count} items"),
+      { one: "1 elemento", other: "%{count} elementos" })
 
     I18n.locale = :es
-    assert_equal "1 elemento",
-      E18n.t(one: "1 item", other: "%{count} items", count: 1)
-    assert_equal "5 elementos",
-      E18n.t(one: "1 item", other: "%{count} items", count: 5)
+    assert_equal "1 elemento", E18n.t(one: "1 item", other: "%{count} items", count: 1)
+    assert_equal "5 elementos", E18n.t(one: "1 item", other: "%{count} items", count: 5)
   end
 
-  # ---------------- Production + dev_locale (served from source, no write) ----------------
-
-  def test_prod_dev_locale_returns_source_without_writing
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    result = E18n.t("Save")
-    assert_equal "Save", result
-
-    # The read path never writes: the catalog is populated at deploy time by
-    # the static extractor, not lazily on lookup.
-    assert_equal 0, Escriba::Translation.count
-  end
-
-  def test_prod_dev_locale_uses_db_value_when_already_present
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    hash_key = Escriba::KeyDeriver.for_singular("Save")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "en",
-      value: "Save (edited)", source_copy: "Save",
-    )
-
-    assert_equal "Save (edited)", E18n.t("Save")
-  end
-
-  # ---------------- Production + non-dev_locale (fallback, no write) ----------------
-
-  def test_prod_non_dev_locale_falls_back_to_source_without_writing
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
+  def test_meaning_selects_a_different_entry
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save", meaning: "to store"), "Guardar")
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Save", meaning: "to rescue"), "Rescatar")
 
     I18n.locale = :es
-    result = E18n.t("Save")
-
-    # No DB row and no YAML entry: the I18n fallback chain resolves es -> en,
-    # and the dev locale serves the source copy in code.
-    assert_equal "Save", result
-
-    assert_equal 0, Escriba::Translation.count
-  end
-
-  def test_prod_non_dev_locale_uses_db_translation_when_present
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    hash_key = Escriba::KeyDeriver.for_singular("Save")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "en",
-      value: "Save", source_copy: "Save",
-    )
-    Escriba::Translation.create!(
-      key: hash_key, locale: "es",
-      value: "Guardar", source_copy: "Save",
-    )
-
-    I18n.locale = :es
-    assert_equal "Guardar", E18n.t("Save")
-  end
-
-  # ---------------- Cache behavior ----------------
-
-  def test_cache_avoids_repeat_db_hits
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    hash_key = Escriba::KeyDeriver.for_singular("Greet")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "en",
-      value: "Greet", source_copy: "Greet",
-    )
-
-    E18n.t("Greet") # primes cache
-
-    # Delete the row underneath — cache should still serve it.
-    Escriba::Translation.delete_all
-    assert_equal "Greet", E18n.t("Greet")
-  end
-
-  # ---------------- Meaning disambiguation ----------------
-
-  def test_meaning_routes_to_distinct_db_rows
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    store_key = Escriba::KeyDeriver.for_singular("Save", meaning: "to store")
-    rescue_key = Escriba::KeyDeriver.for_singular("Save", meaning: "to rescue")
-    refute_equal store_key, rescue_key
-
-    I18n.locale = :es
-    Escriba::Translation.create!(key: store_key, locale: "es", value: "Guardar", source_copy: "Save")
-    Escriba::Translation.create!(key: rescue_key, locale: "es", value: "Rescatar", source_copy: "Save")
-
     assert_equal "Guardar", E18n.t("Save", meaning: "to store")
     assert_equal "Rescatar", E18n.t("Save", meaning: "to rescue")
   end
 
-  # ---------------- Plural fallback ----------------
+  # ---------------- Untranslated: the fallback chain lands on the source ----------------
 
-  def test_dev_test_non_dev_locale_plural_falls_back_to_dev_source
+  def test_a_string_without_an_entry_falls_back_to_the_source_copy
     I18n.locale = :es
-    assert_equal "1 item",
-      E18n.t(one: "1 item", other: "%{count} items", count: 1)
-    assert_equal "5 items",
-      E18n.t(one: "1 item", other: "%{count} items", count: 5)
-  end
-
-  def test_dev_test_non_dev_locale_plural_does_not_write_to_db
-    I18n.locale = :es
-    E18n.t(one: "1 item", other: "%{count} items", count: 3)
-
-    assert_equal 0, Escriba::Translation.count
-  end
-
-  def test_prod_non_dev_locale_plural_falls_back_without_writing
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    I18n.locale = :es
-    result = E18n.t(one: "1 item", other: "%{count} items", count: 7)
-    assert_equal "7 items", result
-
-    assert_equal 0, Escriba::Translation.count
-  end
-
-  # ---------------- dev_locale_from_code mode ----------------
-
-  def test_prod_dev_locale_from_code_short_circuits_to_source
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    Escriba.configure { |c| c.dev_locale_from_code = true }
-
-    assert_equal "Save", E18n.t("Save")
-    assert_equal 0, Escriba::Translation.where(locale: "en").count
-  end
-
-  def test_prod_dev_locale_from_code_ignores_db_row_for_dev_locale
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    Escriba.configure { |c| c.dev_locale_from_code = true }
-
-    hash_key = Escriba::KeyDeriver.for_singular("Save")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "en",
-      value: "Save (edited via UI)", source_copy: "Save",
-    )
-
     assert_equal "Save", E18n.t("Save")
   end
 
-  def test_prod_dev_locale_from_code_non_dev_locale_falls_back_without_writing
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    Escriba.configure { |c| c.dev_locale_from_code = true }
-
+  def test_a_plural_without_an_entry_falls_back_to_the_source_forms
     I18n.locale = :es
-    # es has no DB row and no YAML: the fallback chain resolves to the dev
-    # locale, which is served from source code. Nothing is written.
-    assert_equal "Save", E18n.t("Save")
-
-    assert_equal 0, Escriba::Translation.count
+    assert_equal "1 item", E18n.t(one: "1 item", other: "%{count} items", count: 1)
+    assert_equal "7 items", E18n.t(one: "1 item", other: "%{count} items", count: 7)
   end
 
-  def test_prod_dev_locale_from_code_still_serves_non_dev_locale_from_db
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    Escriba.configure { |c| c.dev_locale_from_code = true }
-
-    hash_key = Escriba::KeyDeriver.for_singular("Save")
-    Escriba::Translation.create!(
-      key: hash_key, locale: "es",
-      value: "Guardar", source_copy: "Save",
-    )
-
-    I18n.locale = :es
-    assert_equal "Guardar", E18n.t("Save")
-  end
-
-  def test_prod_dev_locale_from_code_pluralizes_source_directly
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    Escriba.configure { |c| c.dev_locale_from_code = true }
-
-    assert_equal "1 item",
-      E18n.t(one: "1 item", other: "%{count} items", count: 1)
-    assert_equal "7 items",
-      E18n.t(one: "1 item", other: "%{count} items", count: 7)
-    assert_equal 0, Escriba::Translation.count
-  end
-
-  # ---------------- Non-Escriba I18n keys still work ----------------
-
-  def test_non_escriba_keys_pass_through_to_simple_backend
-    I18n.backend.store_translations(:en, hello: "world")
-    assert_equal "world", I18n.t("hello")
-  end
-
-  # ---------------- YAML fallback (dumped escriba.<locale>.yml files) ----------------
-
-  def store_yml(locale, hash_key, value)
-    I18n.backend.store_translations(locale, escriba: { hash_key => value })
-  end
-
-  # How many statements reach escriba_translations while the block runs.
-  def translation_queries
-    count = 0
-    counter = ->(*, payload) { count += 1 if payload[:sql].include?("escriba_translations") }
-    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
-    count
-  end
-
-  def test_prod_non_dev_locale_falls_back_to_yml_when_db_has_no_value
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "Guardar")
-
-    I18n.locale = :es
-    assert_equal "Guardar", E18n.t("Save")
-  ensure
-    I18n.backend.reload!
-  end
-
-  def test_prod_loads_a_locale_from_the_database_in_one_query
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    Escriba::Translation.create!(key: Escriba::KeyDeriver.for_singular("Save"), locale: "es", value: "Guardar", source_copy: "Save")
-    Escriba::Translation.create!(key: Escriba::KeyDeriver.for_singular("Delete"), locale: "es", value: "Borrar", source_copy: "Delete")
-
-    I18n.locale = :es
-    queries = translation_queries { assert_equal ["Guardar", "Borrar"], [E18n.t("Save"), E18n.t("Delete")] }
-    assert_equal 1, queries
-  end
-
-  def test_prod_db_translation_wins_over_yml
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    hash_key = Escriba::KeyDeriver.for_singular("Save")
-    Escriba::Translation.create!(key: hash_key, locale: "en", value: "Save", source_copy: "Save")
-    Escriba::Translation.create!(key: hash_key, locale: "es", value: "Guardar (DB)", source_copy: "Save")
-    store_yml(:es, hash_key, "Guardar (YML)")
-
-    I18n.locale = :es
-    assert_equal "Guardar (DB)", E18n.t("Save")
-  ensure
-    I18n.backend.reload!
-  end
-
-  def test_prod_blank_yml_skeleton_entries_count_as_missing
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
+  def test_blank_and_whitespace_entries_count_as_missing
     store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "")
-
-    I18n.locale = :es
-    # Falls back through the chain to the dev-locale source copy, not to "".
-    assert_equal "Save", E18n.t("Save")
-  ensure
-    I18n.backend.reload!
-  end
-
-  def test_prod_whitespace_only_yml_entries_count_as_missing
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "  ")
+    store_yml(:es, Escriba::KeyDeriver.for_singular("Delete"), "  ")
 
     I18n.locale = :es
     assert_equal "Save", E18n.t("Save")
-  ensure
-    I18n.backend.reload!
+    assert_equal "Delete", E18n.t("Delete")
   end
 
-  def test_prod_non_string_yml_scalars_count_as_missing
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
+  def test_non_string_scalars_count_as_missing
     # A hand-edited file with unquoted scalars: YAML types them as Integer/true.
     store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), 123)
     store_yml(:es, Escriba::KeyDeriver.for_singular("Enabled"), true)
@@ -419,32 +147,20 @@ class TestE18n < Minitest::Test
     I18n.locale = :es
     assert_equal "Save", E18n.t("Save")
     assert_equal "Enabled", E18n.t("Enabled")
-  ensure
-    I18n.backend.reload!
   end
 
-  def test_prod_plural_yml_fallback_pluralizes_and_skips_blank_forms
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-
-    hash_key = Escriba::KeyDeriver.for_plural(one: "1 file", other: "%{count} files")
-    store_yml(:es, hash_key, { one: "", other: "%{count} fitxers" })
+  def test_blank_plural_forms_are_skipped
+    store_yml(:es, Escriba::KeyDeriver.for_plural(one: "1 file", other: "%{count} files"),
+      { one: "", other: "%{count} fitxers" })
 
     I18n.locale = :es
     assert_equal "2 fitxers", E18n.t(one: "1 file", other: "%{count} files", count: 2)
-  ensure
-    I18n.backend.reload!
   end
 
-  def test_prod_yml_fallback_is_cached
-    ENV["ESCRIBA_ENV"] = "production"
-    Escriba.reset_cache!
-    store_yml(:es, Escriba::KeyDeriver.for_singular("Save"), "Guardar")
+  # ---------------- Non-Escriba I18n keys still work ----------------
 
-    I18n.locale = :es
-    E18n.t("Save") # primes the cache from the YAML store
-
-    I18n.backend.reload! # wipes the YAML store — the cache should still serve it
-    assert_equal "Guardar", E18n.t("Save")
+  def test_non_escriba_keys_pass_through_to_the_simple_backend
+    I18n.backend.store_translations(:en, hello: "world")
+    assert_equal "world", I18n.t("hello")
   end
 end

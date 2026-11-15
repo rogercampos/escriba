@@ -6,7 +6,6 @@ require "tmpdir"
 class TestYmlDumper < Minitest::Test
   def setup
     Escriba.reset_config!
-    Escriba::Translation.delete_all
     Escriba.config.available_locales = %i[en es it]
   end
 
@@ -14,102 +13,98 @@ class TestYmlDumper < Minitest::Test
     Escriba.reset_config!
   end
 
-  KEY_A = "a" * 16
-  KEY_B = "b" * 16
-
-  def create_row(key:, locale:, value:, source_copy: "Save", plural: false, meaning: nil)
-    Escriba::Translation.create!(
-      key: key, locale: locale.to_s, value: value, source_copy: source_copy,
-      plural: plural, meaning: meaning
+  def singular(copy, meaning: nil)
+    Escriba::SourceExtractor::ExtractedString.new(
+      key: Escriba::KeyDeriver.for_singular(copy, meaning: meaning), source_copy: copy, meaning: meaning,
+      plural: false, interpolation_names: Escriba::KeyDeriver.interpolation_names(copy)
     )
   end
 
-  def dump_into(dir)
-    Escriba::YmlDumper.new(dir: dir).dump!
+  def plural(**forms)
+    Escriba::SourceExtractor::ExtractedString.new(
+      key: Escriba::KeyDeriver.for_plural(**forms), source_copy: forms.transform_keys(&:to_s), meaning: nil,
+      plural: true, interpolation_names: forms.values.flat_map { |v| Escriba::KeyDeriver.interpolation_names(v) }.uniq
+    )
   end
 
-  def parsed(dir, locale)
-    YAML.safe_load(File.read(File.join(dir, "escriba.#{locale}.yml")))
+  def dump(dir, *extracted)
+    Escriba::YmlDumper.new(dir: dir, extracted: extracted).dump!
   end
 
-  def test_writes_one_file_per_locale_with_values_and_skeletons
-    create_row(key: KEY_A, locale: :en, value: "Save")
-    create_row(key: KEY_A, locale: :es, value: "Guardar")
+  def write_yml(dir, locale, entries)
+    File.write(File.join(dir, "escriba.#{locale}.yml"), YAML.dump(locale.to_s => { "escriba" => entries }))
+  end
+
+  def entries(dir, locale)
+    YAML.safe_load(File.read(File.join(dir, "escriba.#{locale}.yml"))).dig(locale.to_s, "escriba")
+  end
+
+  def test_writes_a_skeleton_file_per_translated_locale_and_none_for_the_dev_locale
+    save = singular("Save")
 
     Dir.mktmpdir do |dir|
-      files = dump_into(dir)
+      files = dump(dir, save)
 
-      assert_equal %w[escriba.en.yml escriba.es.yml escriba.it.yml],
-        files.map { |f| File.basename(f) }
-      assert_equal({ "en" => { "escriba" => { KEY_A => "Save" } } }, parsed(dir, :en))
-      assert_equal({ "es" => { "escriba" => { KEY_A => "Guardar" } } }, parsed(dir, :es))
-      assert_equal({ "it" => { "escriba" => { KEY_A => "" } } }, parsed(dir, :it))
-    end
-  end
-
-  def test_skips_the_dev_locale_when_it_is_served_from_code
-    Escriba.config.dev_locale_from_code = true
-    create_row(key: KEY_A, locale: :en, value: "Save")
-
-    Dir.mktmpdir do |dir|
-      files = dump_into(dir)
       assert_equal %w[escriba.es.yml escriba.it.yml], files.map { |f| File.basename(f) }
+      assert_equal({ save.key => "" }, entries(dir, :es))
+      assert_equal({ save.key => "" }, entries(dir, :it))
     end
   end
 
-  def test_regenerating_keeps_file_values_the_local_database_does_not_have
-    create_row(key: KEY_A, locale: :en, value: "Save")
-    create_row(key: KEY_B, locale: :en, value: "Delete", source_copy: "Delete")
-    create_row(key: KEY_B, locale: :es, value: "Eliminar (DB)", source_copy: "Delete")
+  def test_keeps_the_values_already_in_the_files
+    save = singular("Save")
+    delete = singular("Delete")
 
     Dir.mktmpdir do |dir|
-      File.write(File.join(dir, "escriba.es.yml"), YAML.dump(
-        { "es" => { "escriba" => { KEY_A => "Guardar (file)", KEY_B => "Eliminar (file)" } } }
-      ))
+      write_yml(dir, :es, { save.key => "Guardar" })
 
-      dump_into(dir)
+      dump(dir, save, delete)
 
-      entries = parsed(dir, :es).dig("es", "escriba")
-      assert_equal "Guardar (file)", entries[KEY_A] # local DB blank — file value survives
-      assert_equal "Eliminar (DB)", entries[KEY_B]  # database wins over the file
+      assert_equal({ delete.key => "", save.key => "Guardar" }, entries(dir, :es))
     end
   end
 
-  def test_replaces_stale_dumps_but_leaves_other_yml_files_alone
-    create_row(key: KEY_A, locale: :en, value: "Save")
+  def test_drops_entries_for_strings_no_longer_in_the_source
+    save = singular("Save")
 
+    Dir.mktmpdir do |dir|
+      write_yml(dir, :es, { save.key => "Guardar", "f" * 16 => "Huérfano" })
+
+      dump(dir, save)
+
+      assert_equal({ save.key => "Guardar" }, entries(dir, :es))
+    end
+  end
+
+  def test_deletes_dumps_of_locales_no_longer_translated_but_leaves_other_yml_files_alone
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "escriba.fr.yml"), "fr:\n")
+      File.write(File.join(dir, "escriba.en.yml"), "en:\n")
       File.write(File.join(dir, "devise.en.yml"), "en:\n")
 
-      dump_into(dir)
+      dump(dir, singular("Save"))
 
-      refute File.exist?(File.join(dir, "escriba.fr.yml"))
-      assert File.exist?(File.join(dir, "devise.en.yml"))
+      assert_equal %w[devise.en.yml escriba.es.yml escriba.it.yml], Dir.children(dir).sort
     end
   end
 
-  def test_dumps_plural_values_and_plural_skeletons_from_the_source_forms
-    source = { "one" => "1 file", "other" => "%{count} files" }
-    create_row(key: KEY_B, locale: :en, value: source, source_copy: source, plural: true)
-    create_row(key: KEY_B, locale: :es, value: { "other" => "%{count} fitxers", "one" => "1 fitxer" },
-      source_copy: source, plural: true)
+  def test_dumps_plural_values_in_cldr_order_and_plural_skeletons_from_the_source_forms
+    files = plural(one: "1 file", other: "%{count} files")
 
     Dir.mktmpdir do |dir|
-      dump_into(dir)
+      write_yml(dir, :es, { files.key => { "other" => "%{count} fitxers", "one" => "1 fitxer" } })
 
-      assert_equal({ "one" => "1 fitxer", "other" => "%{count} fitxers" },
-        parsed(dir, :es).dig("es", "escriba", KEY_B))
-      assert_equal({ "one" => "", "other" => "" },
-        parsed(dir, :it).dig("it", "escriba", KEY_B))
+      dump(dir, files)
+
+      assert_equal({ "one" => "1 fitxer", "other" => "%{count} fitxers" }, entries(dir, :es)[files.key])
+      assert_match(/one: 1 fitxer\n.*other:/m, File.read(File.join(dir, "escriba.es.yml")))
+      assert_equal({ "one" => "", "other" => "" }, entries(dir, :it)[files.key])
     end
   end
 
   def test_annotates_entries_with_the_source_copy_and_meaning
-    create_row(key: KEY_A, locale: :en, value: "Save", meaning: "verb, button label")
-
     Dir.mktmpdir do |dir|
-      dump_into(dir)
+      dump(dir, singular("Save", meaning: "verb, button label"))
       content = File.read(File.join(dir, "escriba.es.yml"))
 
       assert_includes content, "# Save"
@@ -117,32 +112,39 @@ class TestYmlDumper < Minitest::Test
     end
   end
 
-  def test_merges_extracted_strings_into_the_catalog
-    create_row(key: KEY_A, locale: :en, value: "Save")
-    extracted = [
-      Escriba::SourceExtractor::ExtractedString.new(
-        key: KEY_B, source_copy: "Brand new", meaning: nil, plural: false, interpolation_names: []
-      ),
-      # Same key as the DB row — the DB row wins, no duplicate entry.
-      Escriba::SourceExtractor::ExtractedString.new(
-        key: KEY_A, source_copy: "Save", meaning: nil, plural: false, interpolation_names: []
-      ),
-    ]
-
+  def test_orders_entries_by_source_copy_then_meaning
     Dir.mktmpdir do |dir|
-      Escriba::YmlDumper.new(dir: dir, extracted: extracted).dump!
+      dump(dir, singular("Save", meaning: "to store"), singular("Delete"), singular("Save", meaning: "to rescue"))
+      content = File.read(File.join(dir, "escriba.es.yml"))
 
-      assert_equal({ "es" => { "escriba" => { KEY_B => "", KEY_A => "" } } }, parsed(dir, :es))
-      assert_includes File.read(File.join(dir, "escriba.es.yml")), "# Brand new"
+      comments = content.scan(/# (?:meaning: )?(.+)$/).flatten.drop(2) # past the header
+      assert_equal ["Delete", "Save", "to rescue", "Save", "to store"], comments
     end
   end
 
-  def test_empty_catalog_still_writes_skeleton_files
+  def test_contents_previews_the_dump_without_writing
     Dir.mktmpdir do |dir|
-      files = dump_into(dir)
+      contents = Escriba::YmlDumper.new(dir: dir, extracted: [singular("Save")]).contents
 
-      assert_equal 3, files.size
-      assert_equal({ "es" => { "escriba" => {} } }, parsed(dir, :es))
+      assert_equal %w[escriba.es.yml escriba.it.yml], contents.keys.map { |path| File.basename(path) }
+      assert_empty Dir.children(dir)
+    end
+  end
+
+  def test_an_empty_catalog_still_writes_the_files
+    Dir.mktmpdir do |dir|
+      dump(dir)
+
+      assert_equal({ "es" => { "escriba" => {} } }, YAML.safe_load(File.read(File.join(dir, "escriba.es.yml"))))
+    end
+  end
+
+  def test_a_file_with_invalid_yaml_is_named
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "escriba.es.yml"), "es:\n  escriba: [\n")
+
+      error = assert_raises(Escriba::InvalidDumpFile) { dump(dir, singular("Save")) }
+      assert_includes error.message, "escriba.es.yml"
     end
   end
 end

@@ -5,7 +5,7 @@
 
 CI.run "Escriba CI", "Tests of the gem and of the dummy app" do
   step "Tests: Gem", "bundle", "exec", "rake", "test"
-  step "Tests: Dummy app and system", "bundle", "exec", "rake", "test_dummy"
+  step "Tests: Dummy app", "bundle", "exec", "rake", "test_dummy"
 
   if success?
     step "Signoff: All systems go. Ready for merge.", "echo", "The gem is in good shape."

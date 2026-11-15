@@ -1,13 +1,12 @@
 class DemoController < ApplicationController
-  def home
-    I18n.locale = :en
+  around_action :switch_locale
+
+  def show
   end
 
-  def spanish
-    I18n.locale = :es
-  end
+  private
 
-  def plural
-    @count = (params[:count] || 3).to_i
+  def switch_locale(&action)
+    I18n.with_locale(params[:locale] || I18n.default_locale, &action)
   end
 end

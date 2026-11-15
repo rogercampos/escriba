@@ -2,13 +2,11 @@
 
 module Escriba
   class Configuration
-    attr_accessor :dev_locale, :authenticate_with, :dev_locale_from_code
+    attr_accessor :dev_locale
     attr_writer :available_locales
 
     def initialize
       @dev_locale = :en
-      @authenticate_with = nil
-      @dev_locale_from_code = false
       @available_locales = nil
     end
 

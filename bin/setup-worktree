@@ -20,10 +20,9 @@
 #     CLAUDE.local.md) when there are any.
 #
 # --provision also makes it runnable: Ruby installed (mise, from the root
-# .ruby-version), every bundle of the repository complete (one per committed
-# Gemfile.lock), and the dummy app's Tailwind build that its system
-# tests load. The dummy app's databases are SQLite files inside DIR, so they are
-# the worktree's own already, and the test run prepares them.
+# .ruby-version) and every bundle of the repository complete (one per
+# committed Gemfile.lock). Nothing else is needed: neither the gem nor the
+# dummy app has a database.
 #
 # ID names what the worktree must not share with the others, so a caller passes
 # the same one for the same DIR every time: lowercase letters, digits and
@@ -56,7 +55,7 @@ trap 'trap - ERR; printf "setup-worktree: FAILED during %s: interrupted\n" "$STE
 step() { STEP="$1"; log "start"; }
 
 usage() {
-  sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 2
 }
 
@@ -225,12 +224,6 @@ while IFS= read -r lock; do
   fi
   log "bundle complete: $lock"
 done <<< "$locks"
-
-# ── Dummy app ────────────────────────────────────────────────────────────────
-step assets
-# The dummy app's system tests load the Tailwind build, which is gitignored.
-(cd dummy && BUNDLE_GEMFILE="$DIR/dummy/Gemfile" "${RUN[@]}" bin/rails tailwindcss:build)
-log "tailwind built for the dummy app"
 
 STEP=done
 log "ready to run: $DIR"

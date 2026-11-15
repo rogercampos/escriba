@@ -2,9 +2,9 @@
 
 ## About this library
 
-- Escriba is a translations gem for Rails, without translation keys: copy is written in source (`E18n.t("Save", meaning: "to store")`), its key is a hash derived from the copy, and translations live in a database table edited through the engine's admin UI. Underneath it is still Rails I18n. `README.md` describes it.
+- Escriba is a translations gem for Rails, without translation keys: copy is written in source (`E18n.t("Save", meaning: "to store")`), its key is a hash derived from the copy, and translations live in one YAML file per locale (`config/locales/escriba.<locale>.yml`), generated from the source by `escriba:dump_yml` and verified by `escriba:check`. Underneath it is still Rails I18n. There is no database and no UI. `README.md` describes it.
 - It is used from git `main`, so what is pushed to `main` is what users get at their next `bundle update escriba`: a breaking change to the public API is called out in the commit.
-- Layout: `gem/` is the gem (`escriba.gemspec`, `app/` for the admin UI engine, `lib/escriba/`, `test/`); `dummy/` is a Rails app that mounts it, for integration tests; `config/ci.rb` and `bin/` are repo tooling at the root. Each of `gem/` and `dummy/` has its own `Gemfile` and committed `Gemfile.lock`; the Ruby is the root `.ruby-version`.
+- Layout: `gem/` is the gem (`escriba.gemspec`, `lib/escriba/`, `lib/tasks/`, `test/`); `dummy/` is a Rails app that uses it, for integration tests; `config/ci.rb` and `bin/` are repo tooling at the root. Each of `gem/` and `dummy/` has its own `Gemfile` and committed `Gemfile.lock`; the Ruby is the root `.ruby-version`.
 
 ## Running it
 

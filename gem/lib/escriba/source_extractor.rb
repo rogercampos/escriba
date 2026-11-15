@@ -5,15 +5,14 @@ require "prism"
 module Escriba
   # Statically extracts E18n.t calls from the source tree with Prism, deriving
   # the same keys the runtime would. This is the sole mechanism that discovers
-  # the catalog: the lookup path is read-only, so strings only enter the
-  # database through the dump/import pipeline this feeds, never by being
-  # executed. Calls with dynamic copy (see #dynamic_calls) can't be extracted —
-  # they still render via the source fallback but won't appear in the catalog.
+  # the catalog: what it finds is what `escriba:dump_yml` writes to the YAML
+  # files.
   #
   # Escriba keys are content-hashes of literal copy, so any call whose copy
   # (and meaning) are plain string literals is fully resolvable statically.
-  # Calls with dynamic arguments can't be — they are collected in #dynamic_calls
-  # so callers can report them.
+  # Calls with dynamic arguments can't be: they are collected in #dynamic_calls
+  # so callers can report them. They still render the copy they are given, but
+  # never in another locale.
   class SourceExtractor
     ExtractedString = Struct.new(:key, :source_copy, :meaning, :plural, :interpolation_names, :file, :line,
       keyword_init: true)
@@ -21,8 +20,10 @@ module Escriba
     FailedFile = Struct.new(:file, :message, keyword_init: true)
     # One per resolved static call site. #strings dedupes by key (a copy used in
     # ten places yields a single ExtractedString), so occurrences are tracked
-    # separately for callers that care how often each key is actually used.
-    Occurrence = Struct.new(:key, :file, :line, keyword_init: true)
+    # separately for callers that care how often each key is used, or how each
+    # call site names its interpolations (the key ordinalizes them, so
+    # "Edit %{name}" and "Edit %{title}" are one key).
+    Occurrence = Struct.new(:key, :file, :line, :interpolation_names, keyword_init: true)
 
     GLOB = "**/*.{rb,erb}"
 
@@ -143,7 +144,8 @@ module Escriba
 
         entry.file = @file
         entry.line = node.location.start_line
-        @occurrences << Occurrence.new(key: entry.key, file: @file, line: entry.line)
+        @occurrences << Occurrence.new(key: entry.key, file: @file, line: entry.line,
+          interpolation_names: entry.interpolation_names)
         @sink[entry.key] ||= entry
       end
 

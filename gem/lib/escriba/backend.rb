@@ -2,11 +2,18 @@
 
 require "i18n"
 require "i18n/backend/simple"
-require_relative "yml_format"
 require "i18n/backend/pluralization"
 require "i18n/backend/fallbacks"
+require_relative "yml_format"
 
 module Escriba
+  # Rails' Simple backend, with Escriba's lookups answered as follows:
+  #
+  # - the dev locale serves the copy written at the E18n.t call site, always;
+  # - every other locale serves its config/locales/escriba.<locale>.yml file,
+  #   which Rails loads like any other locale file. An entry that is blank or
+  #   not a string counts as missing, so I18n's fallback chain applies and the
+  #   page shows the dev-locale copy instead of nothing.
   class Backend < I18n::Backend::Simple
     include I18n::Backend::Pluralization
     include I18n::Backend::Fallbacks
@@ -16,81 +23,35 @@ module Escriba
     def lookup(locale, key, scope = [], options = {})
       keys = I18n.normalize_keys(locale, key, scope, options[:separator])
       # keys is [locale, *path]; for Escriba lookups path is [:escriba, :<hash>]
-      if keys.size == 3 && keys[1] == NAMESPACE
-        # The block reaches Simple#lookup, i.e. the YAML files on the I18n
-        # load path (the escriba.<locale>.yml dumps shipped with the app).
-        escriba_lookup(locale, keys[2].to_s) { super }
+      return super unless keys.size == 3 && keys[1] == NAMESPACE
+
+      if locale.to_sym == Escriba.config.dev_locale.to_sym
+        source_value(Thread.current[:escriba_source])
       else
-        super
+        file_value(super)
       end
     end
 
     private
 
-    def escriba_lookup(locale, hash_key, &yml_lookup)
-      locale = locale.to_sym
-      dev_locale = Escriba.config.dev_locale
-      source = Thread.current[:escriba_source]
+    def source_value(source)
+      return nil unless source
 
-      if Escriba.dev_locale_in_code? && locale == dev_locale
-        return source_value(source)
-      end
-
-      # The database is the source of truth; the dumped YAML files cover keys
-      # it doesn't have a value for yet, so copies shipped with a deploy are
-      # live before anyone translates them in the admin UI.
-      Escriba.cache.fetch(locale, hash_key) do
-        load(locale, hash_key, source, dev_locale) || yml_value(yml_lookup&.call)
-      end
+      value = source[:value]
+      value.is_a?(Hash) ? value.transform_keys(&:to_sym) : value
     end
 
-    # The dumped YAML files are hand-edited, so only well-formed values get
-    # served: blank/whitespace-only skeleton entries, blank plural forms and
-    # YAML-typed scalars (an unquoted `123` or `yes`) all count as missing, so
-    # the normal fallbacks apply instead of leaking raw scalars into pages.
-    def yml_value(value)
+    # The files are edited by hand, so only well-formed values are served:
+    # blank skeleton entries, blank plural forms and YAML-typed scalars (an
+    # unquoted `123` or `yes`) count as missing. `escriba:check` reports the
+    # malformed ones.
+    def file_value(value)
       case value
       when String
         value.strip.empty? ? nil : value
       when Hash
         forms = value.select { |_, v| v.is_a?(String) && !v.strip.empty? }
         forms.empty? ? nil : forms
-      end
-    end
-
-    # Read-only: the catalog is populated at deploy time by the static
-    # extractor (see SourceExtractor / YmlImporter), so the lookup path never
-    # writes. A dev-locale string the database hasn't been seeded with yet is
-    # served from the source copy in code as an in-memory fallback; a non-dev
-    # locale returns nil and falls through to the YAML dump (and, via the I18n
-    # fallback chain, ultimately to that same dev-locale source copy).
-    #
-    # A row with no value yet (an untranslated entry) still counts as present:
-    # it returns nil without the dev-locale source fallback, as it always has.
-    def load(locale, hash_key, source, dev_locale)
-      catalog = Escriba.cache.catalog(locale) { load_catalog(locale) }
-      return catalog[hash_key] if catalog.key?(hash_key)
-
-      source_value(source) if locale == dev_locale
-    end
-
-    def load_catalog(locale)
-      Escriba::Translation.for_locale(locale).pluck(:key, :value, :plural).to_h do |key, value, plural|
-        [key, row_value(value, plural)]
-      end
-    end
-
-    def source_value(source)
-      return nil unless source
-      value = source[:value]
-      value.is_a?(Hash) ? value.transform_keys(&:to_sym) : value
-    end
-
-    def row_value(value, plural)
-      if plural && value.is_a?(Hash)
-        value.transform_keys(&:to_sym)
-      else
-        value
       end
     end
   end

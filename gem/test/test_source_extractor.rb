@@ -139,6 +139,19 @@ class TestSourceExtractor < Minitest::Test
     end
   end
 
+  def test_occurrences_keep_each_call_site_interpolation_names
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "sample.rb"), <<~RUBY)
+        E18n.t("Edit %{name}", name: a)
+        E18n.t("Edit %{title}", title: b)
+      RUBY
+      extractor = Escriba::SourceExtractor.new(paths: [dir])
+
+      assert_equal 1, extractor.strings.size
+      assert_equal [["name"], ["title"]], extractor.occurrences.map(&:interpolation_names)
+    end
+  end
+
   def test_a_file_that_fails_to_compile_is_reported_and_does_not_abort_the_run
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, "bad.erb"), "\xE9 <%= E18n.t(\"x\") %>".b)

@@ -34,10 +34,10 @@ module EscribaCoverage
       merge_timeout 3600
 
       # Only the gem itself is measured.
-      add_filter "/test/"
-      add_filter "/dummy/"
+      skip "/test/"
+      skip "/dummy/"
 
-      add_group "Core", "lib/escriba"
+      group "Core", "lib/escriba"
 
       enable_coverage :branch
     end
