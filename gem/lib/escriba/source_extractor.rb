@@ -84,7 +84,7 @@ module Escriba
     end
 
     def ruby_source(file)
-      raw = File.read(file)
+      raw = File.read(file, encoding: Encoding::UTF_8)
       return raw unless file.end_with?(".erb")
 
       compile_erb(raw)
