@@ -58,13 +58,6 @@ class TestCheck < Minitest::Test
     assert check.ok?, check.problems.inspect
   end
 
-  def test_untranslated_entries_pass
-    source(%(E18n.t("Save")))
-    dump
-
-    assert_empty check.problems
-  end
-
   def test_reports_dynamic_calls_and_unparseable_files
     source(%(E18n.t(label)))
     File.write(File.join(@app, "bad.erb"), "\xE9 <%= E18n.t(\"x\") %>".b)
@@ -100,13 +93,14 @@ class TestCheck < Minitest::Test
       check.problems
   end
 
-  def test_a_file_edited_by_hand_in_another_layout_passes
-    source(%(E18n.t("Save")))
+  def test_reads_a_file_edited_by_hand_in_another_layout
+    source(%(E18n.t("Hello %{name}", name: n)))
     dump
     path = File.join(@locales, "escriba.es.yml")
-    File.write(path, "es:\n  escriba: { #{key("Save")}: \"Guardar\" }\n")
+    File.write(path, "es:\n  escriba: { #{key("Hello %{name}")}: \"Hola %{nombre}\" }\n")
 
-    assert_empty check.problems
+    assert_equal 1, check.problems.size
+    assert_includes check.problems.first, "Unknown interpolation %{nombre}"
   end
 
   def test_reports_a_file_for_a_locale_that_is_not_translated
