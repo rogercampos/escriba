@@ -52,9 +52,11 @@ module Escriba
       @occurrences
     end
 
-    # Files that couldn't be processed (e.g. an .erb with invalid UTF-8 makes
-    # ERB compilation raise). They are skipped — one bad file must not abort
-    # the whole extraction — and reported here so callers can surface them.
+    # Files that couldn't be processed: Ruby with a syntax error, or an .erb
+    # that doesn't compile to valid Ruby or can't be compiled at all (invalid
+    # UTF-8 makes compilation raise). They are skipped — one bad file must not
+    # abort the whole extraction — and reported here so callers can surface
+    # them, since none of their calls are extracted.
     def failed_files
       extract
       @failed_files
@@ -76,11 +78,15 @@ module Escriba
 
     def extract_file(file, sink)
       result = Prism.parse(ruby_source(file))
-      return unless result.success?
+      return syntax_error!(file, result.errors.first) unless result.success?
 
       result.value.accept(Visitor.new(file, sink, @dynamic_calls, @occurrences))
     rescue StandardError => e
       @failed_files << FailedFile.new(file: file, message: e.message)
+    end
+
+    def syntax_error!(file, error)
+      @failed_files << FailedFile.new(file: file, message: "line #{error.location.start_line}: #{error.message}")
     end
 
     def ruby_source(file)
@@ -90,12 +96,15 @@ module Escriba
       compile_erb(raw)
     end
 
+    # Compiles the template as Rails renders it, with ActionView's own Erubi
+    # handler: plain Erubi turns block helpers (`<%= form_with ... do |f| %>`)
+    # into invalid Ruby. The result goes inside a method, as Rails does, so a
+    # layout's `<%= yield %>` is valid too. The `def` shares the template's
+    # first line, so line numbers still match the template's.
     def compile_erb(template)
-      require "erubi"
-      Erubi::Engine.new(template).src
-    rescue LoadError
-      require "erb"
-      ERB.new(template, trim_mode: "-").src
+      require "action_view"
+      src = ActionView::Template::Handlers::ERB::Erubi.new(template).src
+      "def __escriba_template; #{src}\nend"
     end
 
     class Visitor < Prism::Visitor

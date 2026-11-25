@@ -173,4 +173,39 @@ class TestSourceExtractor < Minitest::Test
     assert_equal 2, strings.size
     assert_includes strings.map(&:source_copy), "From the view"
   end
+
+  def test_extracts_from_erb_block_helpers
+    strings, dynamic = extract(<<~ERB, file: "views/posts/new.html.erb")
+      <%= form_with(url: "/posts") do |f| %>
+        <%= f.label :title, E18n.t("Title") %>
+      <% end %>
+      <%= link_to "/posts" do %><%= E18n.t("Back") %><% end %>
+    ERB
+
+    assert_empty dynamic
+    assert_equal [["Title", 2], ["Back", 4]], strings.map { |s| [s.source_copy, s.line] }
+  end
+
+  def test_extracts_from_layouts_that_yield
+    strings, = extract(<<~ERB, file: "views/layouts/application.html.erb")
+      <body>
+        <%= yield %>
+        <footer><%= E18n.t("Footer") %></footer>
+      </body>
+    ERB
+
+    assert_equal [["Footer", 3]], strings.map { |s| [s.source_copy, s.line] }
+  end
+
+  def test_a_file_with_invalid_syntax_is_reported_as_failed
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, "broken.rb"), 'def label = E18n.t("Lost",')
+      File.write(File.join(dir, "broken.html.erb"), '<% if x %><%= E18n.t("Lost too") %>')
+      extractor = Escriba::SourceExtractor.new(paths: [dir])
+
+      assert_empty extractor.strings
+      assert_equal ["broken.html.erb", "broken.rb"], extractor.failed_files.map { |f| File.basename(f.file) }
+      extractor.failed_files.each { |failure| assert_match(/\Aline \d+: \S/, failure.message) }
+    end
+  end
 end
