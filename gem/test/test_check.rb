@@ -38,7 +38,7 @@ class TestCheck < Minitest::Test
   # Sets a value in the dumped file, the way a translator would.
   def translate(key, value)
     path = File.join(@locales, "escriba.es.yml")
-    content = File.read(path).sub(/^    #{key}:.*(\n      .*)*$/) do
+    content = File.read(path, encoding: Encoding::UTF_8).sub(/^    #{key}:.*(\n      .*)*$/) do
       YAML.dump({ key => value }).sub(/\A---\n/, "").chomp.gsub(/^/, "    ")
     end
     File.write(path, content)

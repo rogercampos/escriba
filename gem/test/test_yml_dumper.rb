@@ -97,7 +97,7 @@ class TestYmlDumper < Minitest::Test
       dump(dir, files)
 
       assert_equal({ "one" => "1 fitxer", "other" => "%{count} fitxers" }, entries(dir, :es)[files.key])
-      assert_match(/one: 1 fitxer\n.*other:/m, File.read(File.join(dir, "escriba.es.yml")))
+      assert_match(/one: 1 fitxer\n.*other:/m, File.read(File.join(dir, "escriba.es.yml"), encoding: Encoding::UTF_8))
       assert_equal({ "one" => "", "other" => "" }, entries(dir, :it)[files.key])
     end
   end
@@ -105,7 +105,7 @@ class TestYmlDumper < Minitest::Test
   def test_annotates_entries_with_the_source_copy_and_meaning
     Dir.mktmpdir do |dir|
       dump(dir, singular("Save", meaning: "verb, button label"))
-      content = File.read(File.join(dir, "escriba.es.yml"))
+      content = File.read(File.join(dir, "escriba.es.yml"), encoding: Encoding::UTF_8)
 
       assert_includes content, "# Save"
       assert_includes content, "# meaning: verb, button label"
@@ -115,7 +115,7 @@ class TestYmlDumper < Minitest::Test
   def test_orders_entries_by_source_copy_then_meaning
     Dir.mktmpdir do |dir|
       dump(dir, singular("Save", meaning: "to store"), singular("Delete"), singular("Save", meaning: "to rescue"))
-      content = File.read(File.join(dir, "escriba.es.yml"))
+      content = File.read(File.join(dir, "escriba.es.yml"), encoding: Encoding::UTF_8)
 
       comments = content.scan(/# (?:meaning: )?(.+)$/).flatten.drop(2) # past the header
       assert_equal ["Delete", "Save", "to rescue", "Save", "to store"], comments
