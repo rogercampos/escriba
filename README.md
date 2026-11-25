@@ -35,7 +35,7 @@ the string alone.
 
 ## Installation
 
-Requirements: Ruby ≥ 3.1, Rails ≥ 7.0.
+Requirements: Ruby ≥ 4.0, Rails ≥ 8.1.
 
 Add to your `Gemfile`:
 

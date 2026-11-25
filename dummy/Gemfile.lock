@@ -2,9 +2,9 @@ PATH
   remote: ../gem
   specs:
     escriba (0.2.0)
-      i18n (>= 1.6)
-      prism (>= 1.0)
-      railties (>= 7.0)
+      i18n (>= 1.15)
+      prism (>= 1.9)
+      railties (>= 8.1)
 
 GEM
   remote: https://rubygems.org/

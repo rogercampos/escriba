@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = "Escriba lets you write real copy in source code (E18n.t(\"Save\")) and keeps its translations in one YAML file per locale, generated from the source and served through Rails' I18n."
   spec.homepage = "https://github.com/rogercampos/escriba"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.1.0"
+  spec.required_ruby_version = ">= 4.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
@@ -31,9 +31,9 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # Runtime dependencies
-  spec.add_dependency "i18n", ">= 1.6"
-  spec.add_dependency "prism", ">= 1.0" # static extraction of E18n.t calls
-  spec.add_dependency "railties", ">= 7.0"
+  spec.add_dependency "i18n", ">= 1.15"
+  spec.add_dependency "prism", ">= 1.9" # static extraction of E18n.t calls
+  spec.add_dependency "railties", ">= 8.1"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html
