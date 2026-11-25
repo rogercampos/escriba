@@ -33,6 +33,19 @@ module Escriba
       config.available_locales.map(&:to_sym) - [config.dev_locale.to_sym]
     end
 
+    # The CLDR plural forms `locale` uses, as strings (["one", "few", "many",
+    # "other"] for Polish), read from the locale's I18n data under
+    # `i18n.plural.keys`, next to the plural rule that picks among them
+    # (rails-i18n declares both for every locale it ships). nil when the locale
+    # declares none, or isn't an I18n locale: then only the source's forms and
+    # "other" are known.
+    def plural_forms(locale)
+      return nil unless I18n.locale_available?(locale)
+
+      forms = I18n.t(:"i18n.plural.keys", locale: locale, resolve: false, default: nil)
+      forms.map(&:to_s) & KeyDeriver::PLURAL_FORM_KEYS.map(&:to_s) if forms.is_a?(Array)
+    end
+
     # Plain-text rendering of a string's source copy (plural forms joined on
     # one line), for the comments in the YAML files and for reports. `entry` is
     # anything responding to #source_copy and #plural.

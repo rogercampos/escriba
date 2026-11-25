@@ -5,14 +5,14 @@ module Escriba
   # (its interpolations and plural forms). Pure and side-effect-free;
   # `escriba:check` runs it over every value in the YAML files.
   #
-  # It deliberately does NOT try to compute the full set of CLDR plural
-  # categories a locale requires (that needs CLDR data Escriba doesn't ship);
-  # it only enforces the universally-required "other" form.
+  # A plural needs its "other" form, and, when given the forms its locale uses
+  # (Escriba.plural_forms), each of those: I18n serves "other" for a count
+  # whose form is missing, so Polish would show "3 stron" instead of "3 strony".
   class TranslationValidator
     Issue = Struct.new(:code, :message, keyword_init: true)
 
     # Every code but :missing (an untranslated value, which is allowed).
-    ERROR_CODES = %i[unknown_interpolation missing_interpolation missing_plural_other].freeze
+    ERROR_CODES = %i[unknown_interpolation missing_interpolation missing_plural_other missing_plural_form].freeze
 
     def self.call(...)
       new(...).issues
@@ -24,10 +24,13 @@ module Escriba
     # source_interpolations - Array of interpolation names in the source. When
     #                         omitted it is derived from source_copy.
     # plural                - whether this is a plural string.
-    def initialize(value:, source_copy:, source_interpolations: nil, plural: false)
+    # plural_forms          - the plural forms the value's locale uses, as
+    #                         strings; nil when unknown.
+    def initialize(value:, source_copy:, source_interpolations: nil, plural: false, plural_forms: nil)
       @value = value
       @source_copy = source_copy
       @plural = plural
+      @plural_forms = Array(plural_forms).map(&:to_s)
       @source_interpolations = Array(source_interpolations || derive_source_interpolations).map(&:to_s)
     end
 
@@ -36,6 +39,7 @@ module Escriba
 
       list = []
       list << issue(:missing_plural_other, %(Missing the required "other" plural form.)) if @plural && !present?(forms["other"])
+      list.concat(locale_form_issues)
       list.concat(interpolation_issues)
       list
     end
@@ -60,6 +64,17 @@ module Escriba
 
     def forms
       @forms ||= @value.is_a?(Hash) ? @value.transform_keys(&:to_s) : {}
+    end
+
+    def locale_form_issues
+      return [] unless @plural
+
+      missing = @plural_forms - ["other"] - forms.select { |_, v| present?(v) }.keys
+      return [] if missing.empty?
+
+      [issue(:missing_plural_form,
+        "Missing the plural form(s) #{missing.join(", ")} this locale uses (until filled in, " \
+        "those counts show the \"other\" form).")]
     end
 
     def interpolation_issues

@@ -22,7 +22,8 @@ module Escriba
   #   YAML.
   # - Values that can't be served: not a string, plural forms that aren't
   #   CLDR forms, or error-level lint issues (an interpolation the source
-  #   doesn't have or a missing one, a plural without its "other" form).
+  #   doesn't have or a missing one, a plural without its "other" form, or
+  #   without a form its locale uses: Polish needs one, few, many and other).
   #
   # Untranslated (blank) entries are not problems: they show the source copy.
   class Check
@@ -118,17 +119,18 @@ module Escriba
       by_key = strings.to_h { |entry| [entry.key, entry] }
 
       paths.select(&:exist?).flat_map do |path|
+        plural_forms = Escriba.plural_forms(YmlFormat.locale_of(path.to_s))
         YmlFormat.entries(path.to_s).filter_map do |key, value|
           entry = by_key[key.to_s]
           next unless entry
 
-          message = value_problem(entry, value)
+          message = value_problem(entry, value, plural_forms)
           "#{rel(path)}: #{Escriba.source_text(entry).inspect} (#{entry.key}): #{message}" if message
         end
       end
     end
 
-    def value_problem(entry, value)
+    def value_problem(entry, value, plural_forms)
       return nil if value.nil?
 
       shape = shape_problem(entry, value)
@@ -136,7 +138,7 @@ module Escriba
 
       errors = TranslationValidator.call(
         value: value, source_copy: entry.source_copy,
-        source_interpolations: entry.interpolation_names, plural: entry.plural
+        source_interpolations: entry.interpolation_names, plural: entry.plural, plural_forms: plural_forms
       ).select { |issue| TranslationValidator::ERROR_CODES.include?(issue.code) }
       errors.map(&:message).join(" ") unless errors.empty?
     end

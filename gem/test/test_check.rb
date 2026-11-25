@@ -17,6 +17,7 @@ class TestCheck < Minitest::Test
   def teardown
     FileUtils.remove_entry(@root)
     Escriba.reset_config!
+    I18n.backend.reload!
   end
 
   def source(code, file: "page.rb")
@@ -139,6 +140,22 @@ class TestCheck < Minitest::Test
 
     assert_equal 1, check.problems.size
     assert_includes check.problems.first, "the value must be a string (quote it), not true"
+  end
+
+  def test_reports_plurals_missing_a_form_their_locale_uses
+    I18n.backend.store_translations(:es, i18n: { plural: { keys: %i[one few many other] } })
+    source(%(E18n.t(one: "1 file", other: "%{count} files", count: n)))
+    dump
+    plural_key = Escriba::KeyDeriver.for_plural(one: "1 file", other: "%{count} files")
+
+    translate(plural_key, { "one" => "1 plik", "few" => "%{count} pliki", "many" => "", "other" => "%{count} pliku" })
+    assert_equal 1, check.problems.size
+    assert_includes check.problems.first, "config/locales/escriba.es.yml"
+    assert_includes check.problems.first, "Missing the plural form(s) many this locale uses"
+
+    translate(plural_key, { "one" => "1 plik", "few" => "%{count} pliki", "many" => "%{count} plików",
+                            "other" => "%{count} pliku" })
+    assert check.ok?, check.problems.inspect
   end
 
   def test_reports_malformed_plurals

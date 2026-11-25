@@ -73,6 +73,26 @@ class TestTranslationValidator < Minitest::Test
     assert_includes issues, :missing_plural_other
   end
 
+  def test_plural_missing_a_form_its_locale_uses
+    issues = Escriba::TranslationValidator.call(
+      value: { "one" => "1 strona", "few" => "", "other" => "%{count} stron" },
+      source_copy: { "one" => "1 page", "other" => "%{count} pages" },
+      plural: true, plural_forms: %i[one few many other]
+    )
+
+    assert_equal [:missing_plural_form], issues.map(&:code)
+    assert_includes issues.first.message, "few, many"
+  end
+
+  def test_plural_with_every_form_its_locale_uses
+    assert_empty codes(
+      value: { "one" => "1 strona", "few" => "%{count} strony", "many" => "%{count} stron",
+               "other" => "%{count} strony" },
+      source_copy: { "one" => "1 page", "other" => "%{count} pages" },
+      plural: true, plural_forms: %i[one few many other]
+    )
+  end
+
   def test_plural_one_form_may_omit_count_without_missing_interpolation
     # "one" has no %{count}; plural must NOT flag missing_interpolation.
     assert_empty codes(
