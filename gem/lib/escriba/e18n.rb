@@ -44,14 +44,8 @@ module Escriba
       raise Escriba::ArgumentError, "Plural call requires :count" unless opts.key?(:count)
       raise Escriba::ArgumentError, "Plural call requires :other form" unless plural_keys_present.include?(:other)
 
-      forms = {}
-      plural_keys_present.each do |k|
-        forms[k] = opts.delete(k)
-      end
-
-      forms.each_value do |v|
-        raise Escriba::ArgumentError, "Plural form values must be Strings" unless v.is_a?(String)
-      end
+      forms = plural_keys_present.to_h { |k| [k, opts.delete(k)] }
+      raise Escriba::ArgumentError, "Plural form values must be Strings" unless forms.values.all?(String)
 
       hash_key = KeyDeriver.for_plural(meaning: meaning, **forms)
       source = {
