@@ -51,7 +51,7 @@ module Escriba
       files = contents
       stale_files.each { |stale| File.delete(stale) }
       @dir.mkpath
-      files.each { |path, content| File.write(path, content) }
+      files.each { |path, content| File.write(path, content, encoding: Encoding::UTF_8) }
       files.keys
     end
 
