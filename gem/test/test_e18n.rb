@@ -42,6 +42,13 @@ class TestE18n < Minitest::Test
     end
   end
 
+  def test_plural_rejects_a_form_that_is_not_a_string
+    error = assert_raises(Escriba::ArgumentError) do
+      E18n.t(one: "1 item", other: 5, count: 1)
+    end
+    assert_equal "Plural form values must be Strings", error.message
+  end
+
   def test_plural_rejects_positional_arg
     assert_raises(Escriba::ArgumentError) do
       E18n.t("a copy", one: "1", other: "%{count}", count: 1)
