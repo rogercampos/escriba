@@ -27,7 +27,7 @@ module Escriba
     # (that's the workflow), so parse errors must name the file — and aliases,
     # which a human may legitimately use, are allowed.
     def entries(file)
-      data = YAML.safe_load(File.read(file), aliases: true) || {}
+      data = YAML.safe_load(File.read(file, encoding: Encoding::UTF_8), aliases: true) || {}
       data.dig(locale_of(file), NAMESPACE) || {}
     rescue Psych::Exception => e
       raise Escriba::InvalidDumpFile, "#{file}: #{e.message}"
