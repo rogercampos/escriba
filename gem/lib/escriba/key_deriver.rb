@@ -45,12 +45,7 @@ module Escriba
     end
 
     def interpolation_names(copy)
-      names = []
-      copy.scan(INTERPOLATION_REGEX) do |match|
-        name = match[0]
-        names << name unless names.include?(name)
-      end
-      names
+      copy.scan(INTERPOLATION_REGEX).flatten.uniq
     end
 
     def sha(canonical)
