@@ -164,6 +164,13 @@ class TestSourceExtractor < Minitest::Test
     end
   end
 
+  def test_extracts_non_ascii_copy_whatever_the_default_external_encoding
+    strings, = extract(%(<p><%= E18n.t("Désolé") %></p>), file: "views/sorry.html.erb")
+
+    assert_equal ["Désolé"], strings.map(&:source_copy)
+    assert_equal Encoding::UTF_8, strings.first.source_copy.encoding
+  end
+
   def test_extracts_from_erb_views
     strings, = extract(<<~ERB, file: "views/home.html.erb")
       <h1><%= E18n.t("From the view") %></h1>
