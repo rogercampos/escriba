@@ -122,12 +122,14 @@ class TestYmlDumper < Minitest::Test
     end
   end
 
-  def test_contents_previews_the_dump_without_writing
+  def test_contents_previews_what_dump_writes
     Dir.mktmpdir do |dir|
-      contents = Escriba::YmlDumper.new(dir: dir, extracted: [singular("Save")]).contents
+      dumper = Escriba::YmlDumper.new(dir: dir, extracted: [singular("Save")])
+      contents = dumper.contents
 
       assert_equal %w[escriba.es.yml escriba.it.yml], contents.keys.map { |path| File.basename(path) }
-      assert_empty Dir.children(dir)
+      dumper.dump!
+      assert_equal contents, contents.keys.to_h { |path| [path, File.read(path)] }
     end
   end
 
