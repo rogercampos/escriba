@@ -171,16 +171,14 @@ Fails, listing every problem, when:
 - a value can't be served: not a string (an unquoted `yes` or `123`), unknown
   plural forms, or a lint error — an interpolation the source doesn't have, one
   it has that the translation dropped (singular strings), or a plural without
-  its `other` form.
+  its `other` form or without a form its locale uses (see Plural below).
 
 Blank entries are not problems: untranslated strings show the source copy.
 `bin/rails escriba:stats` reports how much of each locale is translated.
 
 Lint checks are deliberately limited to what the strings themselves can tell.
 They do not flag a value identical to its source (a cognate, brand or acronym —
-`DNS`, `Plan` — looks exactly like an untranslated value), and they do not
-compute the full set of CLDR plural categories a locale requires; only `other`
-is enforced.
+`DNS`, `Plan` — looks exactly like an untranslated value).
 
 ## API
 
@@ -205,9 +203,15 @@ E18n.t(zero: "...", one: "...", two: "...", few: "...", many: "...", other: "...
 
 - At least `other:` and `count:` are required.
 - Other CLDR plural forms (`zero`, `one`, `two`, `few`, `many`) are optional.
-  English source typically supplies `one` and `other`; translators add whatever
-  extra forms their locale needs in its file (Russian needs `one/few/many/other`,
-  Arabic uses all six).
+  English source typically supplies `one` and `other`, while other locales need
+  more (Polish needs `one/few/many/other`, Arabic uses all six). The forms a
+  locale uses are read from its I18n data, `i18n.plural.keys`, which
+  [rails-i18n](https://github.com/svenfuchs/rails-i18n) declares for every
+  locale along with its plural rule: `escriba:dump_yml` gives each plural a
+  slot for every one of them, and `escriba:check` fails on a translated plural
+  that leaves one blank, since I18n serves `other` for a count whose form is
+  missing ("3 stron" where Polish says "3 strony"). A locale that declares no
+  forms gets the source's forms, and only `other` is required.
 - No positional argument — passing one alongside plural forms is a programmer
   error.
 

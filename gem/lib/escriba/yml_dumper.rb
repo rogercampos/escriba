@@ -13,7 +13,10 @@ module Escriba
   # a value: every entry keeps what the file already says. New strings appear
   # as blank skeleton entries, and strings no longer in the source are dropped.
   # Each entry is annotated with its source copy (and meaning) as a comment, so
-  # a person or an LLM can fill in the blanks from the file alone.
+  # a person or an LLM can fill in the blanks from the file alone. A plural gets
+  # a slot for every form the source writes and every form its locale uses
+  # (Escriba.plural_forms): English source writes one/other, Polish also needs
+  # few and many.
   class YmlDumper
     PLURAL_FORM_ORDER = KeyDeriver::PLURAL_FORM_KEYS.map(&:to_s).freeze
     HEADER = <<~HEADER
@@ -79,14 +82,15 @@ module Escriba
         lines << "  #{YmlFormat::NAMESPACE}: {}"
       else
         lines << "  #{YmlFormat::NAMESPACE}:"
-        catalog.each { |entry| lines.concat(entry_lines(entry, existing[entry.key])) }
+        forms = Escriba.plural_forms(locale) || []
+        catalog.each { |entry| lines.concat(entry_lines(entry, existing[entry.key], forms)) }
       end
       lines.join("\n") + "\n"
     end
 
-    def entry_lines(entry, existing_value)
+    def entry_lines(entry, existing_value, locale_forms)
       indent = " " * 4
-      comment_lines(entry, indent) + value_lines(entry, existing_value, indent)
+      comment_lines(entry, indent) + value_lines(entry, existing_value, locale_forms, indent)
     end
 
     def comment_lines(entry, indent)
@@ -95,9 +99,9 @@ module Escriba
       lines
     end
 
-    def value_lines(entry, existing_value, indent)
+    def value_lines(entry, existing_value, locale_forms, indent)
       value = blank_value?(existing_value) ? skeleton(entry) : existing_value
-      value = ordered_forms(value) if value.is_a?(Hash)
+      value = ordered_forms(with_locale_forms(value, locale_forms)) if value.is_a?(Hash)
 
       # Serializing each entry through Psych keeps quoting/escaping correct;
       # re-indenting every line by the same amount preserves validity.
@@ -110,6 +114,12 @@ module Escriba
       else
         ""
       end
+    end
+
+    # Adds a blank slot for each form the locale uses that the value lacks,
+    # keeping the values already there.
+    def with_locale_forms(forms, locale_forms)
+      locale_forms.to_h { |form| [form, ""] }.merge(forms.transform_keys(&:to_s))
     end
 
     def blank_value?(value)

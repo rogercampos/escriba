@@ -11,6 +11,12 @@ class TestYmlDumper < Minitest::Test
 
   def teardown
     Escriba.reset_config!
+    I18n.backend.reload!
+  end
+
+  # What rails-i18n stores for a locale: the plural forms its rule picks from.
+  def declare_plural_forms(locale, forms)
+    I18n.backend.store_translations(locale, i18n: { plural: { keys: forms } })
   end
 
   def singular(copy, meaning: nil)
@@ -99,6 +105,26 @@ class TestYmlDumper < Minitest::Test
       assert_equal({ "one" => "1 fitxer", "other" => "%{count} fitxers" }, entries(dir, :es)[files.key])
       assert_match(/one: 1 fitxer\n.*other:/m, File.read(File.join(dir, "escriba.es.yml"), encoding: Encoding::UTF_8))
       assert_equal({ "one" => "", "other" => "" }, entries(dir, :it)[files.key])
+    end
+  end
+
+  def test_plural_entries_get_a_slot_for_every_form_their_locale_uses
+    files = plural(one: "1 file", other: "%{count} files")
+    declare_plural_forms(:es, %i[one few many other])
+
+    Dir.mktmpdir do |dir|
+      write_yml(dir, :es, { files.key => { "one" => "1 plik", "other" => "%{count} plików", "few" => "%{count} pliki" } })
+
+      dump(dir, files)
+
+      assert_equal({ "one" => "1 plik", "few" => "%{count} pliki", "many" => "", "other" => "%{count} plików" },
+        entries(dir, :es)[files.key])
+      assert_equal({ "one" => "", "other" => "" }, entries(dir, :it)[files.key])
+
+      File.delete(File.join(dir, "escriba.es.yml"))
+      dump(dir, files)
+
+      assert_equal({ "one" => "", "few" => "", "many" => "", "other" => "" }, entries(dir, :es)[files.key])
     end
   end
 
