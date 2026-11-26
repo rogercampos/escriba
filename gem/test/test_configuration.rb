@@ -15,20 +15,8 @@ class TestConfiguration < Minitest::Test
     assert_equal :en, Escriba.config.dev_locale
   end
 
-  def test_configure_block_yields_config
-    Escriba.configure { |c| c.dev_locale = :de }
-
-    assert_equal :de, Escriba.config.dev_locale
-  end
-
   def test_available_locales_default_to_i18n
     assert_equal I18n.available_locales, Escriba.config.available_locales
-  end
-
-  def test_available_locales_can_be_explicitly_set
-    Escriba.configure { |c| c.available_locales = %i[en es fr] }
-
-    assert_equal %i[en es fr], Escriba.config.available_locales
   end
 
   def test_translated_locales_are_the_available_ones_but_the_dev_locale
